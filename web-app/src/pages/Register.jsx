@@ -17,9 +17,17 @@ const Register = () => {
   const { register } = useAuth();
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "phone") {
+    const regex = /^[0-9]{0,10}$/; // allow only digits, max 10
+
+    if (!regex.test(value)) {
+      return; // stop update if invalid
+    }
+  }
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
   };
 
@@ -36,7 +44,12 @@ const Register = () => {
       return;
     }
 
-
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      alert('Please enter a valid 10-digit phone number');
+      return;
+    }
+    
     setLoading(true);
     
     const result = await register({
