@@ -117,6 +117,7 @@ const OrderScreen = ({ navigation, route }) => {
       const resp = await axios.post('/api/orders/inspect', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       const pages = Number(resp?.data?.totalPdfPages) || 0;
       setDetectedPages(pages);
     } catch (_) {
@@ -174,6 +175,7 @@ const OrderScreen = ({ navigation, route }) => {
       Alert.alert('Error', 'Invalid total amount');
       return;
     }
+    
 
     setLoading(true);
     try {
@@ -197,7 +199,11 @@ const OrderScreen = ({ navigation, route }) => {
         pincode: '123456',
         phone: 'Customer Phone'
       }));
+       
       formData.append('notes', notes);
+      formData.append('totalAmount', totalAmount);
+      
+     
 
       files.forEach((file, idx) => {
         formData.append('files', {

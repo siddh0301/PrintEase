@@ -37,28 +37,64 @@ const Orders = () => {
     } catch (error) {
       console.error('Error updating order status:', error);
     }
+    //debugging tip: if you want to see the full error response, you can log error.response.data instead of just error.message
+//     try {
+//   await axios.put(`/api/orders/${id}/status`, {
+//     status: newStatus
+//   });
+// } catch (error) {
+//   console.log("FULL ERROR:", error.response?.data);
+// }
   };
 
-  const handlePrint = (order) => {
-    // Find the first PDF file in the order
-    const pdfFile = order.files?.find(file => file.mimeType === 'application/pdf');
+  // const handlePrint = (order) => {
+  //     console.log("ORDER DATA:", order); 
+  //   // Find the first PDF file in the order
+  //   const pdfFile = order.files?.find(file => file.mimeType === 'application/pdf');
     
-    if (!pdfFile || !pdfFile.fileUrl) {
-      alert('No PDF file found in this order');
-      return;
-    }
+  //   if (!pdfFile || !pdfFile.fileUrl) {
+  //     alert('No PDF file found in this order');
+  //     return;
+  //   }
 
-    // Open PDF in new window for printing
-    const printWindow = window.open(pdfFile.fileUrl, '_blank');
+  //   // Open PDF in new window for printing
+  //   const printWindow = window.open(pdfFile.fileUrl, '_blank');
     
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    } else {
-      alert('Please allow popups to print the document');
-    }
-  };
+  //   if (printWindow) {
+  //     printWindow.onload = () => {
+  //       printWindow.print();
+  //     };
+  //   } else {
+  //     alert('Please allow popups to print the document');
+  //   }
+  // };
+const handlePrint = (order) => {
+  const file = order.files?.[0];
+
+  if (!file) {
+    alert("No file found");
+    return;
+  }
+
+  let url = file.fileUrl;
+
+  // agar relative path hai to base URL add karo
+  if (!url.startsWith("http")) {
+    url = `http://localhost:5000${url}`;
+  }
+
+  const printWindow = window.open(url, "_blank");
+
+  if (!printWindow) {
+    alert("Popup blocked. Please allow popups.");
+    return;
+  }
+
+  setTimeout(() => {   
+    printWindow.focus();
+    printWindow.print();
+  }, 1500);
+};
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -266,8 +302,9 @@ const Orders = () => {
                                       <div className="flex items-center space-x-3">
                                         {f.fileUrl && (
                                           <a href={f.fileUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">Open</a>
+                                         
                                         )}
-                                      </div>
+                                      </div>  
                                     </li>
                                   ))}
                                 </ul>
