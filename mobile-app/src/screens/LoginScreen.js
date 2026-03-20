@@ -5,44 +5,58 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
+import { Snackbar } from 'react-native-paper';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const { requestOtp, verifyOtp } = useAuth();
 
+  const showMessage = (message) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
   const handleRequestOtp = async () => {
-    if (!phone) {
-      Alert.alert('Error', 'Please enter your phone number');
+    if (!name || !email) {
+      showMessage('Please enter your name and email');
       return;
     }
+
     setLoading(true);
-    const result = await requestOtp(phone);
+    const result = await requestOtp(email, name);
     setLoading(false);
+
     if (!result.success) {
-      Alert.alert('Failed', result.message);
-    } else if (result.devOtp) {
-      Alert.alert('Dev OTP', `Use this code in development: ${result.devOtp}`);
+      console.log('requestOtp failed', result);
+      showMessage(result.message);}
+    // } else if (result.devOtp) {
+    //   showMessage(`Dev OTP: ${result.devOtp}`);
+    // } 
+    else {
+      showMessage('OTP sent to your email');
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!phone || !code) {
-      Alert.alert('Error', 'Enter phone and OTP code');
+    if (!email || !code) {
+      showMessage('Enter email and OTP code');
       return;
     }
     setLoading(true);
-    const result = await verifyOtp(phone, code);
+    const result = await verifyOtp(email, code);
     setLoading(false);
     if (!result.success) {
-      Alert.alert('Invalid Code', result.message);
+      showMessage(result.message);
     }
   };
 
@@ -59,13 +73,26 @@ const LoginScreen = ({ navigation }) => {
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone</Text>
+            <Text style={styles.label}>Name</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your phone number"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
+              placeholder="Enter your full name"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -105,11 +132,27 @@ const LoginScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.linkButton}
-            onPress={() => navigation.navigate('Register')}
+            onPress={() =>
+              showMessage(
+                'Just enter your name and email, then request OTP. Your account will be created automatically.'
+              )
+            }
           >
-            <Text style={styles.linkText}>New user? OTP will create your account</Text>
+            <Text style={styles.linkText}>New user? Just enter your name & email</Text>
           </TouchableOpacity>
         </View>
+
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={3000}
+          action={{
+            label: 'OK',
+            onPress: () => setSnackbarVisible(false),
+          }}
+        >
+          {snackbarMessage}
+        </Snackbar>
       </ScrollView>
     </KeyboardAvoidingView>
   );

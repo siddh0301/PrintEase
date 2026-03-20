@@ -36,10 +36,19 @@ export const mapShopToFormValues = (shop) => {
           shop.printingServices?.color?.doubleSidedPrice ?? 0
       }
     },
+     workingHours: shop.workingHours || {
+      monday:    { isOpen: true,  open: '09:00', close: '21:00' },
+      tuesday:   { isOpen: true,  open: '09:00', close: '21:00' },
+      wednesday: { isOpen: true,  open: '09:00', close: '21:00' },
+      thursday:  { isOpen: true,  open: '09:00', close: '21:00' },
+      friday:    { isOpen: true,  open: '09:00', close: '21:00' },
+      saturday:  { isOpen: true,  open: '09:00', close: '21:00' },
+      sunday:    { isOpen: false, open: '',      close: '' }
+    },
 
     location: {
       lat: shop.location?.coordinates?.[1] ?? null,
       lng: shop.location?.coordinates?.[0] ?? null
     }
   };
-};
+}
