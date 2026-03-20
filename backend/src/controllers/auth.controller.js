@@ -1,28 +1,45 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import User from '../models/User.js';
 import config from '../config/config.js';
 import { generateOtp } from '../utils/otp.js';
 
+const transporter = nodemailer.createTransport({
+  service: config.EMAIL_SERVICE,
+  auth: {
+    user: config.EMAIL_USER,
+    pass: config.EMAIL_PASS,
+  },
+});
+
 // Request OTP
 export const requestOtp = async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { email, name, phone } = req.body;
 
-    if (!phone) {
-      return res.status(400).json({ message: 'Phone is required' });
+    // Support older clients still sending phone, but prefer email.
+    const effectiveEmail = email || (phone ? `${phone}@phone.local` : null);
+
+    if (!effectiveEmail) {
+      console.log('requestOtp missing email/phone, body:', req.body);
+      return res.status(400).json({
+        message: 'Email or phone is required',
+        received: process.env.NODE_ENV !== 'production' ? req.body : undefined,
+      });
     }
 
-    let user = await User.findOne({ phone });
+    let user = await User.findOne({ email: effectiveEmail });
 
     if (!user) {
       user = new User({
-        name: 'Customer',
-        email: `${phone}@placeholder.local`,
+        name: name || 'Customer',
+        email: effectiveEmail,
         password: crypto.randomBytes(12).toString('hex'),
-        phone,
         role: 'customer',
       });
+    } else if (name) {
+      user.name = name;
     }
 
     const code = generateOtp();
@@ -31,7 +48,19 @@ export const requestOtp = async (req, res) => {
 
     await user.save();
 
-    console.log(`OTP for ${phone}: ${code}`);
+    // Send OTP via email (if we have a real email)
+    if (email) {
+      await transporter.sendMail({
+        from: config.EMAIL_USER,
+        to: email,
+        subject: 'Your login OTP',
+        text: `Your login code is: ${code}. It expires in 5 minutes.`,
+        html: `<p>Your login code is: <strong>${code}</strong>.</p><p>It expires in 5 minutes.</p>`,
+      });
+      console.log(`OTP sent to ${email}: ${code}`);
+    } else {
+      console.log(`OTP generated for phone user ${phone || '[unknown]'}: ${code}`);
+    }
 
     return res.json({
       message: 'OTP sent',
@@ -46,13 +75,16 @@ export const requestOtp = async (req, res) => {
 // Verify OTP
 export const verifyOtp = async (req, res) => {
   try {
-    const { phone, code } = req.body;
+    const { email, phone, code } = req.body;
 
-    if (!phone || !code) {
-      return res.status(400).json({ message: 'Phone and code are required' });
+    // Support older clients that only send phone
+    const effectiveEmail = email || (phone ? `${phone}@phone.local` : null);
+
+    if (!effectiveEmail || !code) {
+      return res.status(400).json({ message: 'Email/phone and code are required' });
     }
 
-    const user = await User.findOne({ phone });
+    const user = await User.findOne({ email: effectiveEmail });
 
     if (!user || !user.otpCode || !user.otpExpiresAt) {
       return res.status(400).json({ message: 'Invalid or expired code' });
@@ -62,7 +94,7 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired code' });
     }
 
-    user.phoneVerified = true;
+    user.emailVerified = true;
     user.otpCode = null;
     user.otpExpiresAt = null;
 
@@ -82,7 +114,6 @@ export const verifyOtp = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        phone: user.phone,
       },
     });
   } catch (error) {

@@ -56,6 +56,10 @@ const shopSchema = new mongoose.Schema({
     sunday: { open: String, close: String, isOpen: Boolean }
   },
   images: [String],
+  image: {
+    type: String, // Main shop image URL
+    default: ''
+  },
   // Dedicated printing services pricing
   printingServices: {
     blackWhite: {
@@ -72,6 +76,10 @@ const shopSchema = new mongoose.Schema({
     count: { type: Number, default: 0 }
   },
   isActive: {
+    type: Boolean,
+    default: true
+  },
+  isOpen: {
     type: Boolean,
     default: true
   }

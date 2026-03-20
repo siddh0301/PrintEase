@@ -37,28 +37,94 @@ const Orders = () => {
     } catch (error) {
       console.error('Error updating order status:', error);
     }
+    //debugging tip: if you want to see the full error response, you can log error.response.data instead of just error.message
+//     try {
+//   await axios.put(`/api/orders/${id}/status`, {
+//     status: newStatus
+//   });
+// } catch (error) {
+//   console.log("FULL ERROR:", error.response?.data);
+// }
   };
 
-  const handlePrint = (order) => {
-    // Find the first PDF file in the order
-    const pdfFile = order.files?.find(file => file.mimeType === 'application/pdf');
+  // const handlePrint = (order) => {
+  //     console.log("ORDER DATA:", order); 
+  //   // Find the first PDF file in the order
+  //   const pdfFile = order.files?.find(file => file.mimeType === 'application/pdf');
     
-    if (!pdfFile || !pdfFile.fileUrl) {
-      alert('No PDF file found in this order');
+  //   if (!pdfFile || !pdfFile.fileUrl) {
+  //     alert('No PDF file found in this order');
+  //     return;
+  //   }
+
+  //   // Open PDF in new window for printing
+  //   const printWindow = window.open(pdfFile.fileUrl, '_blank');
+    
+  //   if (printWindow) {
+  //     printWindow.onload = () => {
+  //       printWindow.print();
+  //     };
+  //   } else {
+  //     alert('Please allow popups to print the document');
+  //   }
+  // };
+const handlePrint = async (order) => {
+  const file = order.files?.[0];
+
+  if (!file) {
+    alert("No file found");
+    return;
+  }
+
+  try {
+    let url = file.fileUrl;
+    console.log("Original file.fileUrl:", url);
+    console.log("Full file object:", file);
+
+    // agar relative path hai to base URL add karo
+    if (!url.startsWith("http")) {
+      url = `http://localhost:5000${url}`;
+    }
+
+    console.log("Final URL to fetch:", url);
+
+    // Fetch PDF as blob to avoid CORS issues
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.error("Fetch failed with status:", response.status, response.statusText);
+      console.error("Response headers:", response.headers);
+      alert(`Failed to fetch PDF: ${response.status} ${response.statusText}\n\nURL: ${url}`);
       return;
     }
 
-    // Open PDF in new window for printing
-    const printWindow = window.open(pdfFile.fileUrl, '_blank');
-    
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    } else {
-      alert('Please allow popups to print the document');
+    const blob = await response.blob();
+    console.log("Blob received, size:", blob.size);
+
+    // Create a local object URL from the blob (same-origin now)
+    const blobUrl = URL.createObjectURL(blob);
+    console.log("Blob URL created:", blobUrl);
+
+    // Open the blob URL in a new window
+    const printWindow = window.open(blobUrl, "_blank");
+
+    if (!printWindow) {
+      alert("Popup blocked. Please allow popups.");
+      URL.revokeObjectURL(blobUrl);
+      return;
     }
-  };
+
+    // Print after PDF is loaded
+    printWindow.onload = () => {
+      printWindow.print();
+      // Clean up the blob URL after printing
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    };
+  } catch (error) {
+    console.error("Print error:", error);
+    alert("Error printing PDF. Please check console for details.");
+  }
+};
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -266,8 +332,9 @@ const Orders = () => {
                                       <div className="flex items-center space-x-3">
                                         {f.fileUrl && (
                                           <a href={f.fileUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">Open</a>
+                                         
                                         )}
-                                      </div>
+                                      </div>  
                                     </li>
                                   ))}
                                 </ul>
@@ -276,8 +343,8 @@ const Orders = () => {
                               )}
                             </div>
                             <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-sm font-semibold text-gray-900">Selected Items</h3>
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-semibold text-gray-900">📦 Selected Items</h3>
                                 <button
                                   onClick={() => handlePrint(order)}
                                   className="px-3 py-1 rounded text-white text-sm bg-primary-600 hover:bg-primary-700"
@@ -286,23 +353,51 @@ const Orders = () => {
                                 </button>
                               </div>
                               {order.items?.length ? (
-                                <ul className="space-y-2">
-                                  {order.items.map((it, idx) => (
-                                    <li key={idx} className="text-sm text-gray-700">
-                                      <div className="flex justify-between">
-                                        <div>
-                                          <div className="font-medium">{it.serviceName}</div>
-                                          <div className="text-gray-500 text-xs">{it.code} {it.unit ? `• ${it.unit}` : ''}</div>
-                                        </div>
-                                        <div>
-                                          x{it.quantity} • ₹{it.price} = <span className="font-semibold">₹{it.totalPrice}</span>
-                                        </div>
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm border border-gray-200 rounded">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700 border-b">Service</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-gray-700 border-b w-20">Unit</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-gray-700 border-b w-16">Qty</th>
+                                        <th className="px-3 py-2 text-right font-semibold text-gray-700 border-b w-24">Price</th>
+                                        <th className="px-3 py-2 text-right font-semibold text-gray-700 border-b w-24">Total</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {order.items.map((it, idx) => (
+                                        <tr key={idx} className="border-b hover:bg-gray-50">
+                                          <td className="px-3 py-2">
+                                            <div className="font-medium text-gray-900">{it.name}</div>
+                                            <div className="text-xs text-gray-500">Code: {it.code}</div>
+                                          </td>
+                                          <td className="px-3 py-2 text-center text-gray-700">
+                                            {it.unit || '—'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center text-gray-900 font-medium">
+                                            {it.quantity}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-gray-700">
+                                            ₹{Number(it.price || 0).toFixed(2)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                            ₹{Number(it.totalPrice || (it.price * it.quantity) || 0).toFixed(2)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                      <tr className="bg-blue-50 font-semibold">
+                                        <td colSpan={4} className="px-3 py-3 text-right text-gray-900">
+                                          Total Amount:
+                                        </td>
+                                        <td className="px-3 py-3 text-right text-lg text-blue-600">
+                                          ₹{Number(order.totalAmount || 0).toFixed(2)}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
                               ) : (
-                                <p className="text-sm text-gray-500">No items</p>
+                                <p className="text-sm text-gray-500">No items in this order</p>
                               )}
                             </div>
                           </div>

@@ -37,36 +37,131 @@ export const inspectFiles = async (req, res) => {
   }
 };
 
+// export const createOrder = async (req, res) => {
+//   try {
+//     const { shopId, files: fileMetadata, deliveryDate, instructions } = req.body;
+
+//     const shop = await Shop.findById(shopId);
+//     if (!shop) return res.status(404).json({ message: 'Shop not found' });
+
+//     const order = new Order({
+//       customer: req.user._id,
+//       shop: shopId,
+//       files: req.files ? req.files.map(f => ({ path: f.path, name: f.originalname })) : [],
+//       fileMetadata: fileMetadata,
+//       deliveryDate,
+//       instructions,
+//       status: 'pending'
+//     });
+
+//     await order.save();
+
+//     // Create notification for shop owner
+//     await Notification.create({
+//       shop: shopId,
+//       type: 'new_order',
+//       message: `New order received`,
+//       orderId: order._id
+//     });
+
+//     res.status(201).json({ message: 'Order created successfully', order });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Order creation failed', error: error.message });
+//   }
+// };
 export const createOrder = async (req, res) => {
   try {
-    const { shopId, files: fileMetadata, deliveryDate, instructions } = req.body;
+    const {
+      shopId,
+      items,
+
+      notes,
+      deliveryAddress,
+      totalAmount
+    } = req.body;
 
     const shop = await Shop.findById(shopId);
-    if (!shop) return res.status(404).json({ message: 'Shop not found' });
+    if (!shop) {
+      return res.status(404).json({ message: 'Shop not found' });
+    }
+const parsedItems = JSON.parse(items);
 
+const itemsWithTotal = parsedItems.map(item => ({
+  ...item,
+  totalPrice: Number(item.price) * Number(item.quantity)
+}));
+    // const order = new Order({
+    //   customer: req.user._id,
+    //   shop: shopId,
+
+      
+
+    //   files: req.files
+    //     ? req.files.map(f => ({
+    //         path: f.path,
+    //         name: f.originalname
+    //       }))
+    //     : [],
+
+    //   deliveryAddress: deliveryAddress
+    //     ? JSON.parse(deliveryAddress)
+    //     : undefined,
+
+    //   notes,
+
+    //   totalAmount: Number(totalAmount),   // ⭐ VERY IMPORTANT
+
+    //   status: 'pending'
+    // });
     const order = new Order({
-      customer: req.user._id,
-      shop: shopId,
-      files: req.files ? req.files.map(f => ({ path: f.path, name: f.originalname })) : [],
-      fileMetadata: fileMetadata,
-      deliveryDate,
-      instructions,
-      status: 'pending'
-    });
+  customer: req.user._id,
+  shop: shopId,
+
+  items: itemsWithTotal,   // ⭐ use calculated items
+
+ files: req.files
+  ? req.files.map(f => ({
+      originalName: f.originalname,
+      fileName: f.filename,
+      filePath: f.path,
+      // fileUrl: `${req.protocol}://${req.get("host")}/${f.path}`,
+      fileUrl: `/uploads/orders/${f.filename}`,
+      fileSize: f.size,
+      mimeType: f.mimetype
+    }))
+  : [],
+
+  deliveryAddress: deliveryAddress
+    ? JSON.parse(deliveryAddress)
+    : undefined,
+
+  notes,
+
+  totalAmount: Number(totalAmount),
+
+  status: 'pending'
+});
 
     await order.save();
 
-    // Create notification for shop owner
-    await Notification.create({
-      shop: shopId,
-      type: 'new_order',
-      message: `New order received`,
-      orderId: order._id
+    // await Notification.create({
+    //   shop: shopId,
+    //   type: 'new_order',
+    //   message: `New order received`,
+    //   orderId: order._id
+    // });
+
+    res.status(201).json({
+      message: 'Order created successfully',
+      order
     });
 
-    res.status(201).json({ message: 'Order created successfully', order });
   } catch (error) {
-    res.status(500).json({ message: 'Order creation failed', error: error.message });
+    console.error(error);
+    res.status(500).json({
+      message: 'Order creation failed',
+      error: error.message
+    });
   }
 };
 
@@ -97,14 +192,52 @@ export const getShopOrders = async (req, res) => {
   }
 };
 
+// export const updateOrderStatus = async (req, res) => {
+//   try {
+//     const { status } = req.body;
+//     const order = await Order.findById(req.params.id);
+
+//     if (!order) return res.status(404).json({ message: 'Order not found' });
+
+//     const shop = await Shop.findById(order.shop);
+//     if (shop.owner.toString() !== req.user._id.toString()) {
+//       return res.status(403).json({ message: 'Access denied' });
+//     }
+
+//     order.status = status;
+//     await order.save();
+
+//     // Create notification for customer
+//     await Notification.create({
+//       user: order.customer,
+//       type: 'order_status_update',
+//       message: `Order status updated to ${status}`,
+//       orderId: order._id
+//     });
+
+//     res.json({ message: 'Order status updated', order });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Failed to update order', error: error.message });
+//   }
+// };
+
 export const updateOrderStatus = async (req, res) => {
   try {
+    console.log("Order ID:", req.params.id);
+    console.log("Status:", req.body.status);
+    console.log("User:", req.user);
+
     const { status } = req.body;
     const order = await Order.findById(req.params.id);
 
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     const shop = await Shop.findById(order.shop);
+
+    if (!shop) return res.status(404).json({ message: 'Shop not found' });
+
+    if (!req.user) return res.status(401).json({ message: "User not authenticated" });
+
     if (shop.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -112,16 +245,17 @@ export const updateOrderStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
-    // Create notification for customer
-    await Notification.create({
-      user: order.customer,
-      type: 'order_status_update',
-      message: `Order status updated to ${status}`,
-      orderId: order._id
-    });
+    // await Notification.create({
+    //   user: order.customer,
+    //   type: 'order_status_update',
+    //   message: `Order status updated to ${status}`,
+    //   orderId: order._id
+    // });
 
     res.json({ message: 'Order status updated', order });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Failed to update order', error: error.message });
   }
 };

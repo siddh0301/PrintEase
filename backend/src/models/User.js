@@ -17,9 +17,9 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true
+    required: false
   },
-  phoneVerified: {
+  emailVerified: {
     type: Boolean,
     default: false
   },

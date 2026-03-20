@@ -15,7 +15,13 @@ const storage = multer.diskStorage({
     }
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+    // Sanitize filename: remove spaces and special characters, keep only alphanumeric, dash, underscore, dot
+    const sanitized = file.originalname
+      .replace(/[^a-zA-Z0-9._-]/g, '-') // Replace special chars with dash
+      .replace(/-+/g, '-')               // Replace multiple dashes with single
+      .replace(/^-+|-+$/g, '');          // Remove leading/trailing dashes
+
+    cb(null, Date.now() + '-' + sanitized);
   }
 });
 

@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  Linking,
+  Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -29,6 +32,40 @@ const ShopDetailScreen = ({ navigation, route }) => {
       Alert.alert('Error', 'Failed to fetch shop details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openLocationInMaps = async () => {
+    const { latitude, longitude } = shopDetails.location?.coordinates || {};
+    const address = `${shopDetails.address?.street}, ${shopDetails.address?.city}, ${shopDetails.address?.state} ${shopDetails.address?.pincode}`;
+
+    if (latitude && longitude) {
+      // Use coordinates if available
+      const url = Platform.select({
+        ios: `maps://app?daddr=${latitude},${longitude}`,
+        android: `geo:${latitude},${longitude}?q=${encodeURIComponent(address)}`,
+        default: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+      });
+
+      try {
+        const supported = await Linking.canOpenURL(url);
+        if (supported) {
+          await Linking.openURL(url);
+        } else {
+          // Fallback to web URL
+          await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Unable to open maps application');
+      }
+    } else {
+      // Use address if coordinates not available
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+      try {
+        await Linking.openURL(url);
+      } catch (error) {
+        Alert.alert('Error', 'Unable to open maps');
+      }
     }
   };
 
@@ -145,7 +182,16 @@ const ShopDetailScreen = ({ navigation, route }) => {
         </Text>
         <View style={styles.placeholder} />
       </View>
-
+      {/* Shop Image */}
+      {shopDetails.image && (
+        <View style={styles.shopImageContainer}>
+          <Image
+            source={{ uri: `http://localhost:5000${shopDetails.image}` }}
+            style={styles.shopImage}
+            resizeMode="cover"
+          />
+        </View>
+      )}
       <View style={styles.shopInfo}>
         <Text style={styles.shopName}>{shopDetails.shopName}</Text>
         {shopDetails.ownerName && (
@@ -154,6 +200,11 @@ const ShopDetailScreen = ({ navigation, route }) => {
         {shopDetails.description && (
           <Text style={styles.shopDescription}>{shopDetails.description}</Text>
         )}
+        <View style={styles.statusContainer}>
+          <Text style={[styles.statusText, { color: shopDetails.isOpen ? '#16a34a' : '#dc2626' }]}>
+            {shopDetails.isOpen ? '🟢 Open Today' : '🔴 Closed Today'}
+          </Text>
+        </View>
         {shopDetails.businessHours && (
           <Text style={styles.businessHours}>🕒 {shopDetails.businessHours}</Text>
         )}
@@ -168,18 +219,47 @@ const ShopDetailScreen = ({ navigation, route }) => {
           </Text>
         </View>
 
-        <View style={styles.addressContainer}>
-          <Ionicons name="location-outline" size={20} color="#6b7280" />
+        <TouchableOpacity
+          style={styles.addressContainer}
+          onPress={openLocationInMaps}
+        >
+          <Ionicons name="location-outline" size={20} color="#3b82f6" />
           <Text style={styles.address}>
             {shopDetails.address?.street}, {shopDetails.address?.city}, {shopDetails.address?.state} - {shopDetails.address?.pincode}
           </Text>
-        </View>
+          <Ionicons name="open-outline" size={16} color="#3b82f6" />
+        </TouchableOpacity>
+
+        {shopDetails.distance && (
+          <View style={styles.distanceContainer}>
+            <Ionicons name="navigate-outline" size={16} color="#6b7280" />
+            <Text style={styles.distanceText}>
+              {(shopDetails.distance / 1000).toFixed(1)} km away
+            </Text>
+          </View>
+        )}
 
         {shopDetails.contactInfo?.phone && (
-          <View style={styles.contactContainer}>
-            <Ionicons name="call-outline" size={20} color="#6b7280" />
-            <Text style={styles.contact}>{shopDetails.contactInfo.phone}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.contactContainer}
+            onPress={() => {
+              const phoneNumber = shopDetails.contactInfo.phone.replace(/\s+/g, '');
+              const url = `tel:${phoneNumber}`;
+              Linking.canOpenURL(url).then(supported => {
+                if (supported) {
+                  Linking.openURL(url);
+                } else {
+                  Alert.alert('Error', 'Unable to make phone call');
+                }
+              });
+            }}
+          >
+            <Ionicons name="call-outline" size={20} color="#10b981" />
+            <Text style={styles.contact}>
+              {shopDetails.contactInfo.phone}
+            </Text>
+            <Ionicons name="call" size={16} color="#10b981" />
+          </TouchableOpacity>
         )}
 
         {shopDetails.contactInfo?.email && (
@@ -327,6 +407,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontWeight: '500',
   },
+  statusContainer: {
+    marginBottom: 12,
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,23 +434,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
   },
   address: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#3b82f6',
     marginLeft: 8,
     flex: 1,
     lineHeight: 20,
+    textDecorationLine: 'underline',
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  distanceText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 8,
   },
   contactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
   },
   contact: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#10b981',
     marginLeft: 8,
+    flex: 1,
+    fontWeight: '500',
   },
   servicesSection: {
     backgroundColor: 'white',
@@ -442,6 +549,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  shopImageContainer: {
+    padding: 16,
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  shopImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
   },
 });
 

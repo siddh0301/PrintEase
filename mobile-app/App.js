@@ -4,7 +4,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import * as Notifications from 'expo-notifications';
+// Notifications feature disabled for now
+// // import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Screens
@@ -27,14 +28,14 @@ import { Ionicons } from '@expo/vector-icons';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Configure notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Notifications feature disabled - handler configuration removed
+// Notifications.setNotificationHandler({
+//   handleNotification: async () => ({
+//     shouldShowAlert: true,
+//     shouldPlaySound: true,
+//     shouldSetBadge: false,
+//   }),
+// });
 
 function MainTabs() {
   return (
@@ -98,22 +99,21 @@ export default function App() {
   const [notification, setNotification] = useState(false);
 
   useEffect(() => {
-    // Request notification permissions
-    registerForPushNotificationsAsync();
+    // Notifications disabled: no permission request or listeners
+    // registerForPushNotificationsAsync();
 
-    // Listen for notifications
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      setNotification(notification);
-    });
+    // const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+    //   setNotification(notification);
+    // });
 
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-    });
+    // const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+    //   console.log('Notification response:', response);
+    // });
 
-    return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
-    };
+    // return () => {
+    //   Notifications.removeNotificationSubscription(notificationListener);
+    //   Notifications.removeNotificationSubscription(responseListener);
+    // };
   }, []);
 
   return (
@@ -126,22 +126,23 @@ export default function App() {
   );
 }
 
-async function registerForPushNotificationsAsync() {
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  
-  if (finalStatus !== 'granted') {
-    alert('Failed to get push token for push notification!');
-    return;
-  }
-  
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
-  console.log('Push token:', token);
-  
-  return token;
-}
+// Notifications disabled: registration helper removed
+// async function registerForPushNotificationsAsync() {
+//   const { status: existingStatus } = await Notifications.getPermissionsAsync();
+//   let finalStatus = existingStatus;
+//   
+//   if (existingStatus !== 'granted') {
+//     const { status } = await Notifications.requestPermissionsAsync();
+//     finalStatus = status;
+//   }
+//   
+//   if (finalStatus !== 'granted') {
+//     alert('Failed to get push token for push notification!');
+//     return;
+//   }
+//   
+//   const token = (await Notifications.getExpoPushTokenAsync()).data;
+//   console.log('Push token:', token);
+//   
+//   return token;
+//}

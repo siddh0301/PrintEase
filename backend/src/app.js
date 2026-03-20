@@ -8,6 +8,9 @@ import ordersRoutes from './routes/orders.routes.js';
 import paymentsRoutes from './routes/payments.js';
 import notificationsRoutes from './routes/notifications.js';
 
+
+
+
 const app = express();
 
 const allowedOrigins = process.env.CORS_ORIGIN.split(',');
@@ -57,7 +60,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
 // Serve static files
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(process.cwd(),'backend','uploads')));
 
 // 404 handler
 app.use('*', (req, res) => {

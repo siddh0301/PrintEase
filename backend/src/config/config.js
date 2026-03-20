@@ -5,6 +5,7 @@ const config = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || 'your_cloudinary_cloud_name',
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || 'your_cloudinary_api_key',
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || 'your_cloudinary_api_secret',
+  EMAIL_SERVICE: process.env.EMAIL_SERVICE || 'gmail',
   EMAIL_USER: process.env.EMAIL_USER || 'your_email@gmail.com',
   EMAIL_PASS: process.env.EMAIL_PASS || 'your_email_password'
 };

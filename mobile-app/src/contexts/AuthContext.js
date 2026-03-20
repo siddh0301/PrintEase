@@ -66,9 +66,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const requestOtp = async (phone) => {
+  const requestOtp = async (email, name) => {
     try {
-      const response = await axios.post('/api/auth/request-otp', { phone });
+      const response = await axios.post('/api/auth/request-otp', { email, name });
       return { success: true, devOtp: response.data.devOtp };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to send OTP';
@@ -76,9 +76,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyOtp = async (phone, code) => {
+  const verifyOtp = async (email, code) => {
     try {
-      const response = await axios.post('/api/auth/verify-otp', { phone, code });
+      const response = await axios.post('/api/auth/verify-otp', { email, code });
       const { token, user } = response.data;
       await AsyncStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;

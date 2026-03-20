@@ -100,12 +100,20 @@ export const createShop = async (req, res) => {
 
     res.status(201).json({ message: 'Shop created successfully', shop });
   } catch (error) {
+    console.error('Error creating shop', {
+      body: req.body,
+      error: error.message,
+      stack: error.stack
+    });
+
     const validation = error?.errors
       ? Object.keys(error.errors).map(k => error.errors[k]?.message)
       : undefined;
 
-    res.status(500).json({
-      message: 'Server error creating shop',
+    const status = validation ? 400 : 500;
+
+    res.status(status).json({
+      message: validation ? 'Validation error' : 'Server error creating shop',
       error: error.message,
       validation
     });
@@ -142,6 +150,61 @@ export const getOwnerShops = async (req, res) => {
 
     const shops = await Shop.find({ owner: req.user._id });
     res.json(shops);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+/* ===== Toggle shop open/close ===== */
+export const toggleShopOpen = async (req, res) => {
+  try {
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) {
+      return res.status(404).json({ message: 'Shop not found' });
+    }
+
+    if (shop.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    shop.isOpen = !shop.isOpen;
+    await shop.save();
+
+    res.json({
+      message: `Shop ${shop.isOpen ? 'opened' : 'closed'} successfully`,
+      isOpen: shop.isOpen
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+/* ===== Upload shop image ===== */
+export const uploadShopImage = async (req, res) => {
+  try {
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) {
+      return res.status(404).json({ message: 'Shop not found' });
+    }
+
+    if (shop.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    // Update shop with image URL
+    const imageUrl = `/uploads/shops/${req.file.filename}`;
+    shop.image = imageUrl;
+    await shop.save();
+
+    res.json({
+      message: 'Shop image uploaded successfully',
+      imageUrl: imageUrl,
+      shop
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

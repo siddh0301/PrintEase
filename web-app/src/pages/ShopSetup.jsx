@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { roundCoord } from '../utils/geo.utils';
+import { geocodeAddress, roundCoord } from '../utils/geo.utils';
 
 import {
   createShop,
   updateShop,
-  getMyShops
+  getMyShops,
+  toggleShopOpen
 } from '../services/shop.service';
 
 import { mapShopToFormValues } from '../utils/shop.mapper';
@@ -62,13 +63,42 @@ export default function ShopSetup() {
   const [shopId, setShopId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const [shopImage, setShopImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue } =
     useForm({ defaultValues });
 
   const lat = watch('location.lat');
   const lng = watch('location.lng');
+  const address = watch('address');
+
+
+  const fetchMyLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setIsFetchingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setValue('location.lat', roundCoord(pos.coords.latitude));
+        setValue('location.lng', roundCoord(pos.coords.longitude));
+        setIsFetchingLocation(false);
+      },
+      () => {
+        toast.error('Unable to fetch your location');
+        setIsFetchingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const loadShop = async () => {
     try {
@@ -78,6 +108,12 @@ export default function ShopSetup() {
       if (shops.length > 0) {
         const shop = shops[0];
         setShopId(shop._id);
+        setIsOpen(shop.isOpen);
+
+        // Load existing shop image
+        if (shop.image) {
+          setImagePreview(shop.image);
+        }
 
         const mapped = mapShopToFormValues(shop);
         reset(mapped);
@@ -94,10 +130,27 @@ export default function ShopSetup() {
     loadShop();
   }, []);
 
+
   const onSubmit = async (data) => {
     try {
       const payload = { ...data };
-      const { lat, lng } = data.location || {};
+      let { lat, lng } = data.location || {};
+
+      // If location is not set, try geocoding the address section.
+      if ((lat == null || lng == null) && address) {
+        setIsGeocoding(true);
+        try {
+          const loc = await geocodeAddress(address);
+          if (loc) {
+            lat = loc.lat;
+            lng = loc.lng;
+            setValue('location.lat', roundCoord(lat));
+            setValue('location.lng', roundCoord(lng));
+          }
+        } finally {
+          setIsGeocoding(false);
+        }
+      }
 
       if (lat != null && lng != null) {
         payload.location = {
@@ -119,12 +172,94 @@ export default function ShopSetup() {
       setIsEditing(false);
       await loadShop(); // soft refresh
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Operation failed');
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Operation failed';
+
+      const validation =
+        err.response?.data?.validation?.length > 0
+          ? err.response.data.validation.join(', ')
+          : null;
+
+      toast.error(validation ? `${message}: ${validation}` : message);
     }
   };
 
+  const handleToggleOpen = async () => {
+    try {
+      const res = await toggleShopOpen(shopId);
+      setIsOpen(res.data.isOpen);
+      toast.success(res.data.message);
+    } catch (err) {
+      toast.error('Failed to toggle shop status');
+    }
+  };
+
+  const handleImageSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select a valid image file');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+
+      setShopImage(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => setImagePreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadShopImage = async () => {
+    if (!shopImage || !shopId) return;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', shopImage);
+
+      const response = await fetch(`http://localhost:5000/api/shops/${shopId}/upload-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const result = await response.json();
+      setImagePreview(result.imageUrl);
+      setShopImage(null);
+      toast.success('Shop image uploaded successfully');
+    } catch (error) {
+      toast.error('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setShopImage(null);
+    setImagePreview(null);
+  };
+
   const cancelEdit = () => {
-    reset(savedSnapshot);
+    if (savedSnapshot) {
+      reset(savedSnapshot);
+    }
     setIsEditing(false);
   };
 
@@ -135,18 +270,38 @@ export default function ShopSetup() {
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded shadow space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">
-          {shopId ? 'Shop Details' : 'Create Shop'}
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold">
+            {shopId ? 'Shop Details' : 'Create Shop'}
+          </h1>
+          {shopId && (
+            <p className="text-sm text-gray-600 mt-1">
+              Status: <span className={isOpen ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                {isOpen ? 'Open' : 'Closed'}
+              </span>
+            </p>
+          )}
+        </div>
 
-        {shopId && !isEditing && (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="px-4 py-2 bg-gray-800 text-white rounded"
-          >
-            Edit
-          </button>
-        )}
+        <div className="flex gap-2">
+          {shopId && (
+            <button
+              onClick={handleToggleOpen}
+              className={`px-4 py-2 rounded text-white ${isOpen ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+            >
+              {isOpen ? 'Close for Today' : 'Open Shop'}
+            </button>
+          )}
+
+          {shopId && !isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 bg-gray-800 text-white rounded"
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -163,6 +318,56 @@ export default function ShopSetup() {
 
           <Field label="Description">
             <textarea className={inputClass} rows={3} disabled={!isEditing && shopId} {...register('description')} />
+          </Field>
+
+          {/* Shop Image Upload */}
+          <Field label="Shop Image">
+            <div className="space-y-4">
+              {imagePreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={imagePreview}
+                    alt="Shop"
+                    className="w-32 h-32 object-cover rounded-lg border"
+                  />
+                  {(isEditing || !shopId) && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {(isEditing || !shopId) && (
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+
+                  {shopImage && (
+                    <button
+                      type="button"
+                      onClick={uploadShopImage}
+                      disabled={uploadingImage}
+                      className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+                    >
+                      {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <p className="text-sm text-gray-500">
+                Upload a photo of your shop. Max size: 5MB. Supported formats: JPG, PNG, GIF
+              </p>
+            </div>
           </Field>
         </Section>
 
@@ -250,6 +455,17 @@ export default function ShopSetup() {
 
         {/* LOCATION */}
         <Section title="Shop Location">
+          <div className="flex flex-col gap-3 mb-4">
+            <button
+              type="button"
+              onClick={fetchMyLocation}
+              disabled={isFetchingLocation}
+              className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+            >
+              {isFetchingLocation ? 'Fetching…' : 'Use my location'}
+            </button>
+          </div>
+
           <LocationSection
             lat={lat}
             lng={lng}
@@ -258,7 +474,7 @@ export default function ShopSetup() {
               setValue('location.lat', roundCoord(lat));
               setValue('location.lng', roundCoord(lng));
             }}
-            />
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Latitude">

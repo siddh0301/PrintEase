@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Linking,
+  Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -66,6 +69,40 @@ const ShopListScreen = ({ navigation }) => {
     setFilteredShops(filtered);
   };
 
+  const openLocationInMaps = async (shop) => {
+    const { latitude, longitude } = shop.location?.coordinates || {};
+    const address = `${shop.address?.street}, ${shop.address?.city}, ${shop.address?.state} ${shop.address?.pincode}`;
+
+    if (latitude && longitude) {
+      // Use coordinates if available
+      const url = Platform.select({
+        ios: `maps://app?daddr=${latitude},${longitude}`,
+        android: `geo:${latitude},${longitude}?q=${encodeURIComponent(address)}`,
+        default: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+      });
+
+      try {
+        const supported = await Linking.canOpenURL(url);
+        if (supported) {
+          await Linking.openURL(url);
+        } else {
+          // Fallback to web URL
+          await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Unable to open maps application');
+      }
+    } else {
+      // Use address if coordinates not available
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+      try {
+        await Linking.openURL(url);
+      } catch (error) {
+        Alert.alert('Error', 'Unable to open maps');
+      }
+    }
+  };
+
   const hasPrintingServices = (shop) => {
     return shop.printingServices?.blackWhite || 
            shop.printingServices?.color ||
@@ -115,26 +152,61 @@ const ShopListScreen = ({ navigation }) => {
       style={styles.shopCard}
       onPress={() => navigation.navigate('ShopDetail', { shop: item })}
     >
-      <View style={styles.shopInfo}>
-        <Text style={styles.shopName}>{item.shopName}</Text>
-        <Text style={styles.shopAddress}>
-          {item.address?.street}, {item.address?.city}
-        </Text>
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={16} color="#fbbf24" />
-          <Text style={styles.rating}>
-            {item.rating?.average?.toFixed(1) || '0.0'}
-          </Text>
-          <Text style={styles.ratingCount}>
-            ({item.rating?.count || 0} reviews)
+      <View style={styles.shopImageContainer}>
+        {item.image ? (
+          <Image
+            source={{ uri: `http://192.168.1.5:5000${item.image}` }}
+            style={styles.shopImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.shopImagePlaceholder}>
+            <Ionicons name="storefront" size={32} color="#9ca3af" />
+          </View>
+        )}
+        <View style={[styles.statusBadge, { backgroundColor: item.isOpen ? '#dcfce7' : '#fef2f2' }]}>
+          <Text style={[styles.statusBadgeText, { color: item.isOpen ? '#166534' : '#dc2626' }]}>
+            {item.isOpen ? 'Open' : 'Closed'}
           </Text>
         </View>
+      </View>
+
+      <View style={styles.shopInfo}>
+        <View style={styles.shopHeader}>
+          <Text style={styles.shopName} numberOfLines={1}>{item.shopName}</Text>
+          <View style={styles.ratingContainer}>
+            <Ionicons name="star" size={14} color="#fbbf24" />
+            <Text style={styles.rating}>
+              {item.rating?.average?.toFixed(1) || '0.0'}
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.locationContainer}
+          onPress={() => openLocationInMaps(item)}
+        >
+          <Ionicons name="location-outline" size={16} color="#3b82f6" />
+          <Text style={styles.shopAddress} numberOfLines={2}>
+            {item.address?.street}, {item.address?.city}
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color="#3b82f6" />
+        </TouchableOpacity>
+
         <View style={styles.servicesContainer}>
           <Text style={[styles.servicesText, !hasPrintingServices(item) && styles.noServicesText]}>
             {getServiceText(item)}
           </Text>
         </View>
+
+        <View style={styles.distanceContainer}>
+          <Ionicons name="time-outline" size={14} color="#6b7280" />
+          <Text style={styles.distanceText}>
+            {item.distance ? `${(item.distance / 1000).toFixed(1)} km away` : 'Distance unknown'}
+          </Text>
+        </View>
       </View>
+
       <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
     </TouchableOpacity>
   );
@@ -258,39 +330,83 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  shopImageContainer: {
+    marginRight: 12,
+    position: 'relative',
+  },
+  shopImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  shopImagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   shopInfo: {
     flex: 1,
   },
+  shopHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   shopName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 4,
+    flex: 1,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingVertical: 4,
   },
   shopAddress: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#3b82f6',
+    marginLeft: 4,
+    flex: 1,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
   },
   rating: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#1f2937',
     marginLeft: 4,
   },
-  ratingCount: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 4,
-  },
   servicesContainer: {
     marginTop: 4,
+    marginBottom: 4,
   },
   servicesText: {
     fontSize: 12,
@@ -299,6 +415,16 @@ const styles = StyleSheet.create({
   },
   noServicesText: {
     color: '#ef4444',
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  distanceText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 4,
   },
   emptyContainer: {
     flex: 1,
