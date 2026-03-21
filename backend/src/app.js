@@ -60,7 +60,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
 // Serve static files
-app.use('/uploads', express.static(path.join(process.cwd(),'backend','uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(),'uploads')));
 
 // 404 handler
 app.use('*', (req, res) => {

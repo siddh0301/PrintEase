@@ -167,7 +167,9 @@ const ShopDetailScreen = ({ navigation, route }) => {
            shopDetails.printingServices?.file ||
            shopDetails.printingServices?.stapler;
   };
-
+    console.log("IMAGE PATH:", shopDetails.image);
+    const BASE_URL = "http://192.168.1.3:5000";
+const imagePath = shopDetails.image?.trim();
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -183,10 +185,12 @@ const ShopDetailScreen = ({ navigation, route }) => {
         <View style={styles.placeholder} />
       </View>
       {/* Shop Image */}
+      
       {shopDetails.image && (
         <View style={styles.shopImageContainer}>
           <Image
-            source={{ uri: `http://localhost:5000${shopDetails.image}` }}
+            source={{uri: `${BASE_URL}${imagePath}`}}
+            
             style={styles.shopImage}
             resizeMode="cover"
           />
