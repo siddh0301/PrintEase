@@ -68,9 +68,7 @@ const Orders = () => {
   //     alert('Please allow popups to print the document');
   //   }
   // };
-const handlePrint = async (order) => {
-  const file = order.files?.[0];
-
+const handlePrint = async (file) => {
   if (!file) {
     alert("No file found");
     return;
@@ -289,12 +287,20 @@ const handlePrint = async (order) => {
                             <Eye className="h-4 w-4" />
                           </button>
                           {order.status === 'pending' && (
-                            <button
-                              onClick={() => updateOrderStatus(order._id, 'accepted')}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              Accept
-                            </button>
+                            <>
+                              <button
+                                onClick={() => updateOrderStatus(order._id, 'accepted')}
+                                className="text-green-600 hover:text-green-900"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => updateOrderStatus(order._id, 'cancelled')}
+                                className="text-red-600 hover:text-red-900 ml-2"
+                              >
+                                Reject
+                              </button>
+                            </>
                           )}
                           {order.status === 'accepted' && (
                             <button
@@ -331,10 +337,17 @@ const handlePrint = async (order) => {
                                       </div>
                                       <div className="flex items-center space-x-3">
                                         {f.fileUrl && (
-                                          <a href={f.fileUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">Open</a>
-                                         
+                                          <>
+                                            <a href={f.fileUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">Open</a>
+                                            <button
+                                              onClick={() => handlePrint(f)}
+                                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                            >
+                                              Print
+                                            </button>
+                                          </>
                                         )}
-                                      </div>  
+                                      </div>
                                     </li>
                                   ))}
                                 </ul>
@@ -345,12 +358,6 @@ const handlePrint = async (order) => {
                             <div>
                               <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-semibold text-gray-900">📦 Selected Items</h3>
-                                <button
-                                  onClick={() => handlePrint(order)}
-                                  className="px-3 py-1 rounded text-white text-sm bg-primary-600 hover:bg-primary-700"
-                                >
-                                  Print PDF
-                                </button>
                               </div>
                               {order.items?.length ? (
                                 <div className="overflow-x-auto">
@@ -359,34 +366,47 @@ const handlePrint = async (order) => {
                                       <tr>
                                         <th className="px-3 py-2 text-left font-semibold text-gray-700 border-b">Service</th>
                                         <th className="px-3 py-2 text-center font-semibold text-gray-700 border-b w-20">Unit</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-gray-700 border-b w-16">Pages</th>
                                         <th className="px-3 py-2 text-center font-semibold text-gray-700 border-b w-16">Qty</th>
                                         <th className="px-3 py-2 text-right font-semibold text-gray-700 border-b w-24">Price</th>
                                         <th className="px-3 py-2 text-right font-semibold text-gray-700 border-b w-24">Total</th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {order.items.map((it, idx) => (
-                                        <tr key={idx} className="border-b hover:bg-gray-50">
-                                          <td className="px-3 py-2">
-                                            <div className="font-medium text-gray-900">{it.name}</div>
-                                            <div className="text-xs text-gray-500">Code: {it.code}</div>
-                                          </td>
-                                          <td className="px-3 py-2 text-center text-gray-700">
-                                            {it.unit || '—'}
-                                          </td>
-                                          <td className="px-3 py-2 text-center text-gray-900 font-medium">
-                                            {it.quantity}
-                                          </td>
-                                          <td className="px-3 py-2 text-right text-gray-700">
-                                            ₹{Number(it.price || 0).toFixed(2)}
-                                          </td>
-                                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                                            ₹{Number(it.totalPrice || (it.price * it.quantity) || 0).toFixed(2)}
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {order.items.map((it, idx) => {
+                                        // Calculate total: if per page, total = pages * price * qty; else price * qty
+                                        let total = 0;
+                                        if (it.unit === 'per page') {
+                                          total = (Number(it.pages || 0) * Number(it.price || 0) * Number(it.quantity || 1));
+                                        } else {
+                                          total = Number(it.price || 0) * Number(it.quantity || 1);
+                                        }
+                                        return (
+                                          <tr key={idx} className="border-b hover:bg-gray-50">
+                                            <td className="px-3 py-2">
+                                              <div className="font-medium text-gray-900">{it.name}</div>
+                                              <div className="text-xs text-gray-500">Code: {it.code}</div>
+                                            </td>
+                                            <td className="px-3 py-2 text-center text-gray-700">
+                                              {it.unit || '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-center text-gray-900 font-medium">
+                                              {it.unit === 'per page' ? (it.pages || 0) : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-center text-gray-900 font-medium">
+                                              {it.quantity}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-gray-700">
+                                              ₹{Number(it.price || 0).toFixed(2)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                              ₹{total.toFixed(2)}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                       <tr className="bg-blue-50 font-semibold">
-                                        <td colSpan={4} className="px-3 py-3 text-right text-gray-900">
+                                        <td colSpan={5} className="px-3 py-3 text-right text-gray-900">
                                           Total Amount:
                                         </td>
                                         <td className="px-3 py-3 text-right text-lg text-blue-600">

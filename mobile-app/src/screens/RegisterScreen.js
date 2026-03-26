@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { colors, spacing, shadows } from '../styles/theme';
 
 const RegisterScreen = ({ navigation }) => {
   return (
@@ -42,69 +43,62 @@ const RegisterScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: spacing.xl,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   form: {
     width: '100%',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: 'white',
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: spacing.lg,
+    ...shadows.default,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    borderColor: colors.border,
+  },
+  infoText: {
+    fontSize: 15,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
+    lineHeight: 22,
   },
   button: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.secondary,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: '#9ca3af',
+    marginTop: spacing.sm,
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   linkButton: {
-    marginTop: 20,
+    marginTop: spacing.md,
     alignItems: 'center',
   },
   linkText: {
-    color: '#3b82f6',
-    fontSize: 16,
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

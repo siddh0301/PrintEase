@@ -15,6 +15,7 @@ router.get('/:id/upi-qr', controller.generateUpiQr);
 // Shop owner
 router.post('/', auth, shopOwnerAuth, controller.createShop);
 router.put('/:id', auth, shopOwnerAuth, controller.updateShop);
+router.put('/:id/upi', auth, shopOwnerAuth, controller.updateUpi);
 router.put('/:id/toggle-open', auth, shopOwnerAuth, controller.toggleShopOpen);
 router.post('/:id/upload-image', auth, shopOwnerAuth, withShopImageUpload, controller.uploadShopImage);
 router.get('/owner/my-shops', auth, shopOwnerAuth, controller.getOwnerShops);

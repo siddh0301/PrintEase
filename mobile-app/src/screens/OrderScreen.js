@@ -7,13 +7,17 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as FileSystem from 'expo-file-system/legacy';
 import axios from 'axios';
 
 const OrderScreen = ({ navigation, route }) => {
-  const { shop, selectedService } = route.params;
+  const { shop } = route.params;
 
   // Build available services from printingServices schema
   const availableServices = useMemo(() => {
@@ -58,71 +62,43 @@ const OrderScreen = ({ navigation, route }) => {
     return services;
   }, [shop]);
 
-  // Normalize initially selected service (if coming from ShopDetailScreen)
-  const initialSelected = useMemo(() => {
-    if (!selectedService) return [];
-    // Map incoming structure to one of available services by name and price match
-    const match = availableServices.find(s => {
-      // Try to match by name fragment (e.g., 'Black & White' -> 'B/W') and price
-      if (selectedService?.type === 'Black & White') {
-        // prefer single if matching price else double
-        if (Number(selectedService?.singlePrice) === s.price && s.id.includes('bw_single')) return true;
-        if (Number(selectedService?.doublePrice) === s.price && s.id.includes('bw_double')) return true;
-      }
-      if (selectedService?.type === 'Color') {
-        if (Number(selectedService?.singlePrice) === s.price && s.id.includes('color_single')) return true;
-        if (Number(selectedService?.doublePrice) === s.price && s.id.includes('color_double')) return true;
-      }
-      return false;
-    });
-    return match ? [match] : [];
-  }, [selectedService, availableServices]);
-
-  const [selectedServices, setSelectedServices] = useState(initialSelected);
-  const [quantities, setQuantities] = useState({});
   const [files, setFiles] = useState([]);
+  const [fileOptions, setFileOptions] = useState({});
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [detectedPages, setDetectedPages] = useState(0);
 
-  const handleServiceToggle = (service) => {
-    const isSelected = selectedServices.find(s => s.id === service.id);
-    if (isSelected) {
-      setSelectedServices(selectedServices.filter(s => s.id !== service.id));
-      const newQuantities = { ...quantities };
-      delete newQuantities[service.id];
-      setQuantities(newQuantities);
-    } else {
-      setSelectedServices([...selectedServices, service]);
-      setQuantities({ ...quantities, [service.id]: 1 });
-    }
+  const updateFileOption = (fileIndex, option, value) => {
+    setFileOptions(prev => ({
+      ...prev,
+      [fileIndex]: {
+        ...(prev[fileIndex] || {}),
+        [option]: value,
+      },
+    }));
   };
 
-  const updateQuantity = (serviceId, quantity) => {
-    const numericQty = Number(quantity);
-    if (!Number.isFinite(numericQty) || numericQty < 1) return;
-    setQuantities({ ...quantities, [serviceId]: numericQty });
-  };
-
-  const refreshDetectedPages = async (nextFiles) => {
-    try {
-      const form = new FormData();
-      (nextFiles || []).forEach((file, idx) => {
+  const refreshDetectedPages = async (filesList) => {
+    let total = 0;
+    for (let i = 0; i < filesList.length; i++) {
+      try {
+        const form = new FormData();
         form.append('files', {
-          uri: file.uri,
-          type: file.mimeType || 'application/pdf',
-          name: file.name || `document_${idx + 1}.pdf`,
+          uri: filesList[i].uri,
+          type: filesList[i].mimeType || 'application/pdf',
+          name: filesList[i].name || `document_${i + 1}.pdf`,
         });
-      });
-      const resp = await axios.post('/api/orders/inspect', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      const pages = Number(resp?.data?.totalPdfPages) || 0;
-      setDetectedPages(pages);
-    } catch (_) {
-      setDetectedPages(0);
+        const resp = await axios.post('/api/orders/inspect', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const pages = Number(resp?.data?.totalPdfPages) || 0;
+        updateFileOption(i, 'pages', pages);
+        total += pages;
+      } catch (_) {
+        updateFileOption(i, 'pages', 0);
+      }
     }
+    setDetectedPages(total);
   };
 
   const pickDocument = async () => {
@@ -130,117 +106,104 @@ const OrderScreen = ({ navigation, route }) => {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
         copyToCacheDirectory: true,
+        multiple: true,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        const next = [...files, result.assets[0]];
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newFiles = result.assets.filter(asset =>
+          !files.some(existing => existing.uri === asset.uri)
+        );
+        const next = [...files, ...newFiles];
+
+        // default options per added file (copies + per-file service selection)
+        const nextOptions = { ...fileOptions };
+        newFiles.forEach((_, idx) => {
+          const fileIndex = files.length + idx;
+          nextOptions[fileIndex] = {
+            copies: 1,
+            serviceId: null,
+            pages: 0,
+          };
+        });
+
         setFiles(next);
+        setFileOptions(nextOptions);
         refreshDetectedPages(next);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick document');
+      Alert.alert('Error', 'Failed to pick documents');
     }
   };
 
   const removeFile = (index) => {
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
+
+    const nextOptions = {};
+    Object.keys(fileOptions).forEach((key) => {
+      const num = Number(key);
+      if (num < index) nextOptions[num] = fileOptions[key];
+      if (num > index) nextOptions[num - 1] = fileOptions[key];
+    });
+    setFileOptions(nextOptions);
+
     refreshDetectedPages(newFiles);
   };
 
+  // Calculate total using per-file page count, price per page, and quantity (copies)
   const calculateTotal = () => {
-    const pages = detectedPages > 0 ? detectedPages : 1;
-    return selectedServices.reduce((total, service) => {
-      const qty = Number(quantities[service.id] || 1);
-      const price = Number(service.price || 0);
-      if (!Number.isFinite(qty) || !Number.isFinite(price)) return total;
-      const multiplier = service.unit === 'per page' ? pages : 1;
-      return total + (price * qty * multiplier);
-    }, 0);
+    let total = 0;
+    files.forEach((file, index) => {
+      const options = fileOptions[index] || {};
+      const service = availableServices.find(s => s.id === options.serviceId);
+      const copies = Number(options.copies || 1);
+      const pages = Number(options.pages || 0);
+      const pricePerPage = Number(service?.price || 0);
+      // Validation: must have valid service, pages > 0, pricePerPage > 0, copies > 0
+      if (!service || !Number.isFinite(copies) || copies < 1) return;
+      if (!Number.isFinite(pages) || pages < 1) return;
+      if (!Number.isFinite(pricePerPage) || pricePerPage <= 0) return;
+      // Only multiply by copies if unit is per page or per document
+      if (service.unit === 'per page') {
+        total += pages * pricePerPage * copies;
+      } else if (service.unit === 'per document') {
+        total += pricePerPage * copies;
+      } else {
+        // For per piece or other units, just multiply by copies
+        total += pricePerPage * copies;
+      }
+    });
+    return total;
   };
 
   const handlePlaceOrder = async () => {
-    if (selectedServices.length === 0) {
-      Alert.alert('Error', 'Please select at least one service');
-      return;
-    }
-
     if (files.length === 0) {
       Alert.alert('Error', 'Please upload at least one document');
       return;
     }
 
+    for (let i = 0; i < files.length; i += 1) {
+      const option = fileOptions[i] || {};
+      if (!option.serviceId) {
+        Alert.alert('Error', `Please select a service for file ${i + 1}`);
+        return;
+      }
+      if (!Number.isFinite(Number(option.copies || 0)) || Number(option.copies) < 1) {
+        Alert.alert('Error', `Please set a valid copies value for file ${i + 1}`);
+        return;
+      }
+    }
+
     const totalAmount = calculateTotal();
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      Alert.alert('Error', 'Invalid total amount');
-      return;
-    }
-    
 
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('shopId', shop._id);
-
-      // Build items with client-side codes; backend should map/validate accordingly
-      const items = selectedServices.map(service => ({
-        code: service.code,
-        name: service.name,
-        unit: service.unit,
-        price: Number(service.price),
-        quantity: Number(quantities[service.id] || 1),
-      }));
-      formData.append('items', JSON.stringify(items));
-
-      formData.append('deliveryAddress', JSON.stringify({
-        street: 'Customer Address',
-        city: 'Customer City',
-        state: 'Customer State',
-        pincode: '123456',
-        phone: 'Customer Phone'
-      }));
-       
-      formData.append('notes', notes);
-      formData.append('totalAmount', totalAmount);
-      
-     
-
-      files.forEach((file, idx) => {
-        formData.append('files', {
-          uri: file.uri,
-          type: file.mimeType || 'application/pdf',
-          name: file.name || `document_${idx + 1}.pdf`,
-        });
-      });
-
-      console.log('PlaceOrder Authorization header:', axios?.defaults?.headers?.common?.Authorization);
-      const response = await axios.post('/api/orders', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      Alert.alert(
-        'Order Placed Successfully!',
-        `Your order #${response.data.order.orderNumber} has been placed. You will be redirected to payment.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('Payment', { order: response.data.order })
-          }
-        ]
-      );
-    } catch (error) {
-      console.log('PlaceOrder error:', {
-        status: error?.response?.status,
-        data: error?.response?.data,
-        message: error?.message,
-      });
-      const serverMsg = typeof error?.response?.data === 'string' ? error.response.data : (error?.response?.data?.message);
-      Alert.alert('Error', serverMsg || error?.message || 'Failed to place order');
-    } finally {
-      setLoading(false);
-    }
+    navigation.navigate('OrderConfirmation', {
+      shop,
+      files,
+      fileOptions,
+      notes,
+      totalAmount,
+      availableServices,
+    });
   };
 
   return (
@@ -263,59 +226,26 @@ const OrderScreen = ({ navigation, route }) => {
         </Text>
       </View>
 
+      {/* SECTION 1: SERVICES & PRICES */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Select Services</Text>
+        <Text style={styles.sectionTitle}>Services & Pricing</Text>
         {availableServices.length === 0 ? (
           <Text style={{ color: '#6b7280' }}>No services available.</Text>
         ) : (
-          availableServices.map((service) => {
-            const isSelected = selectedServices.find(s => s.id === service.id);
-            const quantity = quantities[service.id] || 1;
-
-            return (
-              <View key={service.id} style={styles.serviceCard}>
-                <TouchableOpacity
-                  style={styles.serviceHeader}
-                  onPress={() => handleServiceToggle(service)}
-                >
-                  <View style={styles.serviceInfo}>
-                    <Text style={styles.serviceName}>{service.name}</Text>
-                    <Text style={styles.servicePrice}>₹{service.price} / {service.unit}</Text>
-                  </View>
-                  <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                    {isSelected && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                </TouchableOpacity>
-
-                {isSelected && (
-                  <View style={styles.quantityContainer}>
-                    <Text style={styles.quantityLabel}>Quantity:</Text>
-                    <View style={styles.quantityControls}>
-                      <TouchableOpacity
-                        style={styles.quantityButton}
-                        onPress={() => updateQuantity(service.id, (quantity || 1) - 1)}
-                      >
-                        <Ionicons name="remove" size={16} color="#3b82f6" />
-                      </TouchableOpacity>
-                      <Text style={styles.quantityText}>{quantity}</Text>
-                      <TouchableOpacity
-                        style={styles.quantityButton}
-                        onPress={() => updateQuantity(service.id, (quantity || 1) + 1)}
-                      >
-                        <Ionicons name="add" size={16} color="#3b82f6" />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.serviceTotal}>
-                      Total: ₹{(Number(service.price) * Number(quantity || 1) * (service.unit === 'per page' ? (detectedPages > 0 ? detectedPages : 1) : 1)).toFixed(2)}
-                    </Text>
-                  </View>
-                )}
+          availableServices.map((service) => (
+            <View key={service.id} style={styles.serviceCard}>
+              <View style={styles.serviceHeader}>
+                <View style={styles.serviceInfo}>
+                  <Text style={styles.serviceName}>{service.name}</Text>
+                  <Text style={styles.servicePrice}>₹{service.price} / {service.unit}</Text>
+                </View>
               </View>
-            );
-          })
+            </View>
+          ))
         )}
       </View>
 
+      {/* SECTION 2: UPLOAD DOCUMENTS */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Upload Documents</Text>
         <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
@@ -323,26 +253,153 @@ const OrderScreen = ({ navigation, route }) => {
           <Text style={styles.uploadButtonText}>Upload PDF Files</Text>
         </TouchableOpacity>
         {detectedPages > 0 && (
-          <Text style={{ marginTop: 8, color: '#374151' }}>Detected pages: {detectedPages}</Text>
-        )}
-        
-        {files.length > 0 && (
-          <View style={styles.filesList}>
-            {files.map((file, index) => (
-              <View key={index} style={styles.fileItem}>
-                <Ionicons name="document-text" size={20} color="#6b7280" />
-                <Text style={styles.fileName} numberOfLines={1}>
-                  {file.name}
-                </Text>
-                <TouchableOpacity onPress={() => removeFile(index)}>
-                  <Ionicons name="close-circle" size={20} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
+          <Text style={{ marginTop: 8, color: '#374151' }}>Total Pages Detected: {detectedPages}</Text>
         )}
       </View>
 
+      {/* SECTION 3: FILES WITH SERVICE ASSIGNMENT */}
+      {files.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Files ({files.length})</Text>
+          <View style={styles.filesList}>
+            {files.map((file, index) => {
+              const options = fileOptions[index] || { copies: 1, serviceId: null };
+              const selectedService = availableServices.find(s => s.id === options.serviceId);
+              const serviceOptions = availableServices.slice(0, 4);
+              // Calculate file total for display
+              let fileTotal = 0;
+              const pages = Number(options.pages || 0);
+              const pricePerPage = Number(selectedService?.price || 0);
+              const copies = Number(options.copies || 1);
+              if (selectedService && pages > 0 && pricePerPage > 0 && copies > 0) {
+                if (selectedService.unit === 'per page') {
+                  fileTotal = pages * pricePerPage * copies;
+                } else if (selectedService.unit === 'per document') {
+                  fileTotal = pricePerPage * copies;
+                } else {
+                  fileTotal = pricePerPage * copies;
+                }
+              }
+              return (
+                <View key={index} style={styles.fileItemContainer}>
+                  {/* File Header */}
+                  <View style={styles.fileItemHeader}>
+                    <View style={styles.fileItemLeft}>
+                      <Ionicons name="document-text" size={22} color="#3b82f6" />
+                      <View style={styles.fileItemInfo}>
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {file.name}
+                        </Text>
+                        <Text style={styles.fileService}>
+                          Service: {selectedService ? selectedService.name : 'Not selected'}
+                        </Text>
+                        <Text style={styles.filePages}>
+                          Pages: {options.pages || 0}
+                        </Text>
+                        {selectedService && (
+                          <>
+                            <Text style={styles.filePages}>
+                              Price per {selectedService.unit === 'per page' ? 'page' : selectedService.unit === 'per document' ? 'document' : 'item'}: ₹{selectedService.price}
+                            </Text>
+                            <Text style={styles.filePages}>
+                              Copies: {copies}
+                            </Text>
+                            <Text style={styles.filePages}>
+                              File Total: ₹{fileTotal.toFixed(2)}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.fileItemRight}>
+                      <TouchableOpacity 
+                        onPress={async () => {
+                          try {
+                            let targetUri = file.uri;
+                            if (Platform.OS === 'android') {
+                              // Always copy to cache and get content URI
+                              const cachePath = `${FileSystem.cacheDirectory}${file.name || `document_${Date.now()}.pdf`}`;
+                              await FileSystem.copyAsync({
+                                from: file.uri,
+                                to: cachePath,
+                              });
+                              const contentUri = await FileSystem.getContentUriAsync(cachePath);
+                              await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                                data: contentUri,
+                                flags: 1, // 1 = FLAG_GRANT_READ_URI_PERMISSION
+                                type: 'application/pdf',
+                              });
+                            } else {
+                              await Linking.openURL(file.uri);
+                            }
+                          } catch (error) {
+                            console.log('View PDF error', error);
+                            Alert.alert('Error', 'Unable to open PDF, please install a PDF viewer app');
+                          }
+                        }} 
+                        style={styles.viewPdfButton}
+                      >
+                        <Ionicons name="eye" size={20} color="#3b82f6" />
+                        <Text style={styles.viewPdfText}>View</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => removeFile(index)}>
+                        <Ionicons name="close-circle" size={22} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* File Options */}
+                  <View style={styles.fileOptionsDivider} />
+                  <View style={styles.fileOptionsContainer}>
+                    <Text style={[styles.optionLabel, { marginBottom: 8 }]}>Choose Service:</Text>
+                    <View style={styles.optionButtons}>
+                      {serviceOptions.length > 0 ? (
+                        serviceOptions.map(service => {
+                          const active = selectedService?.id === service.id;
+                          return (
+                            <TouchableOpacity
+                              key={service.id}
+                              style={[styles.optionButton, active && styles.optionButtonActive]}
+                              onPress={() => updateFileOption(index, 'serviceId', service.id)}
+                            >
+                              <Text style={[styles.optionButtonText, active && styles.optionButtonTextActive]}>
+                                {service.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })
+                      ) : (
+                        <Text style={styles.optionValue}>No services available</Text>
+                      )}
+                    </View>
+
+                    <View style={styles.optionRow}> 
+                      <Text style={styles.optionLabel}>Copies:</Text>
+                      <View style={styles.quantityControls}>
+                        <TouchableOpacity
+                          style={styles.quantityButton}
+                          onPress={() => updateFileOption(index, 'copies', Math.max(1, Number(options.copies || 1) - 1))}
+                        >
+                          <Ionicons name="remove" size={16} color="#3b82f6" />
+                        </TouchableOpacity>
+                        <Text style={styles.quantityText}>{options.copies || 1}</Text>
+                        <TouchableOpacity
+                          style={styles.quantityButton}
+                          onPress={() => updateFileOption(index, 'copies', Number(options.copies || 1) + 1)}
+                        >
+                          <Ionicons name="add" size={16} color="#3b82f6" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* SECTION 4: ADDITIONAL NOTES */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Additional Notes</Text>
         <TextInput
@@ -355,6 +412,7 @@ const OrderScreen = ({ navigation, route }) => {
         />
       </View>
 
+      {/* SECTION 5: TOTAL & ORDER */}
       <View style={styles.totalSection}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total Amount:</Text>
@@ -428,6 +486,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 16,
+  },
+  serviceSelectedInfo: {
+    fontSize: 14,
+    color: '#1f2937',
+    marginBottom: 8,
   },
   serviceCard: {
     borderWidth: 1,
@@ -538,6 +601,132 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1f2937',
     marginLeft: 12,
+  },
+  fileItemContainer: {
+    marginBottom: 12,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+  },
+  fileItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: '#f8fafc',
+  },
+  fileItemLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fileItemInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  fileService: {
+    fontSize: 12,
+    color: '#3b82f6',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  filePages: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  fileItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewPdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    padding: 6,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 6,
+  },
+  viewPdfText: {
+    fontSize: 12,
+    color: '#3b82f6',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  fileOptionsDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  fileOptionsContainer: {
+    padding: 14,
+  },
+  fileOptions: {
+    marginTop: 10,
+  },
+  optionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  optionValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  optionButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+  },
+  optionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: '#f8fafc',
+  },
+  optionButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  optionButtonText: {
+    fontSize: 12,
+    color: '#334155',
+  },
+  optionButtonTextActive: {
+    color: 'white',
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quantityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f9ff',
+  },
+  quantityText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginHorizontal: 12,
   },
   notesInput: {
     borderWidth: 1,

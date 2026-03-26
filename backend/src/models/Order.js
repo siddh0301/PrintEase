@@ -26,9 +26,14 @@ const orderSchema = new mongoose.Schema({
       required: false
     },
     serviceName: String,
+    name: String,
     unit: {
       type: String,
       required: false
+    },
+    pages: {
+      type: Number,
+      default: 0
     },
     quantity: {
       type: Number,
@@ -82,12 +87,23 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Generate order number before validation (sync generator to avoid validation errors)
-orderSchema.pre('validate', function(next) {
+orderSchema.pre('validate', async function(next) {
   if (!this.orderNumber) {
-    const suffix = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    this.orderNumber = `ORD${Date.now()}${suffix}`;
+    try {
+      const user = await mongoose.model('User').findById(this.customer);
+      const candidateName = user?.name || user?.email?.split('@')[0] || 'USER';
+      const cleanName = candidateName.toString().replace(/[^a-zA-Z0-9]/g, '').substring(0, 20).toUpperCase() || 'USER';
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      this.orderNumber = `${cleanName}-${randomDigits}`;
+    } catch (err) {
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      this.orderNumber = `USER-${randomDigits}`;
+    }
   }
   next();
 });
+
+orderSchema.index({ shop: 1, paymentStatus: 1 });
+
 
 export default mongoose.model('Order', orderSchema);
