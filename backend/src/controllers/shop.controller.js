@@ -141,6 +141,36 @@ export const updateShop = async (req, res) => {
   }
 };
 
+/* ===== Update UPI ID ===== */
+export const updateUpi = async (req, res) => {
+  try {
+    const { upiId, displayName } = req.body;
+    
+    if (!upiId) {
+      return res.status(400).json({ message: 'UPI ID is required' });
+    }
+
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) return res.status(404).json({ message: 'Shop not found' });
+    if (shop.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    shop.upi = {
+      id: upiId,
+      displayName: displayName || shop.shopName || 'Shop'
+    };
+    await shop.save();
+
+    res.json({ 
+      message: 'UPI ID updated successfully', 
+      upi: shop.upi 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 /* ===== Owner shops ===== */
 export const getOwnerShops = async (req, res) => {
   try {

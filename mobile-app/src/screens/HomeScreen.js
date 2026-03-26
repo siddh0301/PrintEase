@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { colors, spacing, shadows } from '../styles/theme';
 
 const HomeScreen = ({ navigation }) => {
   const [shops, setShops] = useState([]);
@@ -110,9 +111,8 @@ const HomeScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 40,
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -123,85 +123,92 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    padding: spacing.lg,
+    backgroundColor: colors.primary,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    ...shadows.default,
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: 'white',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginTop: 4,
+    fontSize: 14,
+    color: '#e0f2fe',
+    marginTop: spacing.xs,
   },
   profileButton: {
-    padding: 4,
+    padding: 6,
+    backgroundColor: '#bae6fd',
+    borderRadius: 50,
   },
   searchContainer: {
-    padding: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginTop: -spacing.md,
   },
   searchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
+    ...shadows.default,
   },
   searchText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: spacing.sm,
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: spacing.lg,
+    marginVertical: spacing.md,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.text,
   },
   seeAllText: {
-    fontSize: 16,
-    color: '#3b82f6',
-    fontWeight: '600',
+    fontSize: 15,
+    color: colors.secondary,
+    fontWeight: '700',
   },
   listContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   shopCard: {
-    // marginTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
+    ...shadows.default,
   },
   shopInfo: {
     flex: 1,
   },
   shopName: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 4,
   },
   shopAddress: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textMuted,
     marginBottom: 8,
   },
   ratingContainer: {
@@ -211,13 +218,13 @@ const styles = StyleSheet.create({
   rating: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.text,
     marginLeft: 4,
   },
   ratingCount: {
     fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 4,
+    color: colors.textMuted,
+    marginLeft: 6,
   },
 });
 

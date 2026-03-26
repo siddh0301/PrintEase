@@ -64,6 +64,69 @@ router.post('/create-payment-intent', authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ Route 1b: Setup UPI payment target for shop owner
+router.post('/create-upi-payment', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const order = await Order.findById(orderId).populate('shop');
+
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (order.customer.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (!order.shop || !order.shop.upi?.id) {
+      return res.status(400).json({ message: 'Shop UPI ID is not configured' });
+    }
+
+    order.paymentMethod = 'upi';
+    order.paymentStatus = 'pending';
+    await order.save();
+
+    return res.json({
+      message: 'Send UPI payment to shop',
+      upiId: order.shop.upi.id,
+      amount: order.totalAmount,
+      currency: 'INR',
+      orderNumber: order.orderNumber
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// ✅ Route 1c: Confirm UPI payment by customer after GPay/PhonePe/Paytm succeeds
+router.post('/confirm-upi-payment', authenticateToken, async (req, res) => {
+  try {
+    const { orderId, upiTxnId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    
+    if (order.customer.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (order.paymentStatus === 'paid') {
+      return res.status(400).json({ message: 'Order already marked as paid' });
+    }
+
+    // Mark payment as successful
+    order.paymentStatus = 'paid';
+    order.paymentId = upiTxnId || `upi_${Date.now()}`;
+    order.paymentMethod = 'upi';
+    await order.save();
+
+    res.json({
+      message: 'UPI Payment confirmed successfully',
+      orderNumber: order.orderNumber,
+      paymentStatus: 'paid'
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // ✅ Route 2: Confirm payment
 router.post('/confirm-payment', authenticateToken, async (req, res) => {
   try {

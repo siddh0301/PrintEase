@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Snackbar } from 'react-native-paper';
 import { useAuth } from '../contexts/AuthContext';
+import { colors, spacing, shadows } from '../styles/theme';
 
 const LoginScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -161,69 +162,78 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   form: {
     width: '100%',
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: spacing.lg,
+    ...shadows.default,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.md,
   },
   label: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     fontSize: 16,
+    color: colors.text,
   },
   button: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: spacing.md,
   },
   buttonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: '#93c5fd',
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   linkButton: {
-    marginTop: 20,
+    marginTop: spacing.lg,
     alignItems: 'center',
   },
   linkText: {
-    color: '#3b82f6',
-    fontSize: 16,
+    color: colors.secondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

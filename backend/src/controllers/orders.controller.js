@@ -88,7 +88,10 @@ const parsedItems = JSON.parse(items);
 
 const itemsWithTotal = parsedItems.map(item => ({
   ...item,
-  totalPrice: Number(item.price) * Number(item.quantity)
+  pages: item.pages || (item.isImage ? 1 : 0), // set 1 for images, or use detected pages
+  totalPrice: item.unit === 'per page'
+    ? Number(item.price) * Number(item.quantity) * Number(item.pages || (item.isImage ? 1 : 0))
+    : Number(item.price) * Number(item.quantity)
 }));
     // const order = new Order({
     //   customer: req.user._id,
@@ -113,34 +116,33 @@ const itemsWithTotal = parsedItems.map(item => ({
 
     //   status: 'pending'
     // });
+    const usernameKey = (req.user?.name || req.user?.email || 'USER').toString().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').substring(0,24).toUpperCase() || 'USER';
+    const randomDigits = Math.floor(100000 + Math.random() * 900000);
+    const orderNumber = `${usernameKey}-${randomDigits}`;
+
     const order = new Order({
-  customer: req.user._id,
-  shop: shopId,
-
-  items: itemsWithTotal,   // ⭐ use calculated items
-
- files: req.files
-  ? req.files.map(f => ({
-      originalName: f.originalname,
-      fileName: f.filename,
-      filePath: f.path,
-      // fileUrl: `${req.protocol}://${req.get("host")}/${f.path}`,
-      fileUrl: `/uploads/orders/${f.filename}`,
-      fileSize: f.size,
-      mimeType: f.mimetype
-    }))
-  : [],
-
-  deliveryAddress: deliveryAddress
-    ? JSON.parse(deliveryAddress)
-    : undefined,
-
-  notes,
-
-  totalAmount: Number(totalAmount),
-
-  status: 'pending'
-});
+      customer: req.user._id,
+      shop: shopId,
+      orderNumber,
+      items: itemsWithTotal,   // ⭐ use calculated items
+      files: req.files
+        ? req.files.map(f => ({
+            originalName: f.originalname,
+            fileName: f.filename,
+            filePath: f.path,
+            // fileUrl: `${req.protocol}://${req.get("host")}/${f.path}`,
+            fileUrl: `/uploads/orders/${f.filename}`,
+            fileSize: f.size,
+            mimeType: f.mimetype
+          }))
+        : [],
+      deliveryAddress: deliveryAddress
+        ? JSON.parse(deliveryAddress)
+        : undefined,
+      notes,
+      totalAmount: Number(totalAmount),
+      status: 'pending'
+    });
 
     await order.save();
 
@@ -182,13 +184,41 @@ export const getShopOrders = async (req, res) => {
     const shops = await Shop.find({ owner: req.user._id });
     const shopIds = shops.map(s => s._id);
 
-    const orders = await Order.find({ shop: { $in: shopIds } })
+    // ⭐ Only fetch orders with 'paid' payment status
+    const orders = await Order.find({ 
+      shop: { $in: shopIds },
+      paymentStatus: 'paid'  // ✅ Payment complete hone ke baad hi dikhega
+    })
       .populate('customer', 'name phone email')
       .sort({ createdAt: -1 });
 
     res.json(orders);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch orders', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to fetch orders', 
+      error: error.message 
+    });
+  }
+};
+
+export const getShopPendingOrders = async (req, res) => {
+  try {
+    const shops = await Shop.find({ owner: req.user._id });
+    const shopIds = shops.map(s => s._id);
+
+    const orders = await Order.find({
+      shop: { $in: shopIds },
+      status: 'pending'
+    })
+      .populate('customer', 'name phone email')
+      .sort({ createdAt: -1 });
+
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch pending orders',
+      error: error.message
+    });
   }
 };
 

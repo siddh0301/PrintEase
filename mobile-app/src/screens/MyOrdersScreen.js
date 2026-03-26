@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { colors, spacing, shadows } from '../styles/theme';
 
 const MyOrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -185,9 +186,8 @@ const MyOrdersScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 40,
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -198,35 +198,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: 'white',
+    padding: spacing.md,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.text,
   },
   refreshButton: {
-    padding: 4,
+    padding: 6,
   },
   listContainer: {
-    padding: 16,
+    padding: spacing.md,
   },
   orderCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
+    ...shadows.default,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   orderInfo: {
     flex: 1,
@@ -234,18 +235,18 @@ const styles = StyleSheet.create({
   orderNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.text,
   },
   shopName: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textMuted,
     marginTop: 2,
   },
   statusContainer: {
     padding: 4,
   },
   orderDetails: {
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   detailRow: {
     flexDirection: 'row',
@@ -255,19 +256,19 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   detailValue: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
+    fontWeight: '600',
+    color: colors.text,
   },
   statusBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: colors.border,
   },
   statusIndicator: {
     width: 8,
@@ -278,7 +279,40 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+    textTransform: 'uppercase',
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: spacing.md,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  browseButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+  },
+  browseButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',

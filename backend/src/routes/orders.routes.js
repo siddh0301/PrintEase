@@ -17,6 +17,9 @@ router.get('/customer/my-orders', auth, controller.getCustomerOrders);
 // Shop owner orders
 router.get('/shop/my-orders', auth, shopOwnerAuth, controller.getShopOrders);
 
+// Shop pending orders
+router.get('/shop/pending', auth, shopOwnerAuth, controller.getShopPendingOrders);
+
 // Update order status (shop owner)
 router.put('/:id/status', auth, shopOwnerAuth, controller.updateOrderStatus);
 
