@@ -29,4 +29,7 @@ router.post('/:id/print', auth, shopOwnerAuth, controller.printOrder);
 // Order details (customer or owner)
 router.get('/:id', auth, controller.getOrderById);
 
+// Cancel order (customer)
+router.patch('/:id/cancel', auth, controller.cancelOrder);
+
 export default router;

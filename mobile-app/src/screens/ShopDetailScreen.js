@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { colors } from '../styles/theme';
 
 const ShopDetailScreen = ({ navigation, route }) => {
   const { shop } = route.params;
@@ -221,6 +222,18 @@ const imagePath = shopDetails.image?.trim();
           <Text style={styles.ratingCount}>
             ({shopDetails.rating?.count || 0} reviews)
           </Text>
+          {shopDetails.rating?.count > 0 && (
+            <TouchableOpacity
+              style={styles.viewRatingsButton}
+              onPress={() => navigation.navigate('Rating', {
+                shopId: shopDetails._id,
+                shopName: shopDetails.shopName
+              })}
+            >
+              <Text style={styles.viewRatingsText}>View All</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity
@@ -433,6 +446,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginLeft: 4,
+  },
+  viewRatingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 6,
+    gap: 4,
+  },
+  viewRatingsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0ea5e9',
   },
   addressContainer: {
     flexDirection: 'row',

@@ -17,6 +17,9 @@ import ShopDetailScreen from './src/screens/ShopDetailScreen';
 import OrderScreen from './src/screens/OrderScreen';
 import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen';
 import MyOrdersScreen from './src/screens/MyOrdersScreen';
+import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
+import RatingScreen from './src/screens/RatingScreen';
+import RateShopScreen from './src/screens/RateShopScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
@@ -84,6 +87,9 @@ function AppNavigator() {
             <Stack.Screen name="ShopDetail" component={ShopDetailScreen} />
             <Stack.Screen name="Order" component={OrderScreen} />
             <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
+            <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} />
+            <Stack.Screen name="Rating" component={RatingScreen} />
+            <Stack.Screen name="RateShop" component={RateShopScreen} />
             <Stack.Screen name="Payment" component={PaymentScreen} />
           </>
         ) : (
