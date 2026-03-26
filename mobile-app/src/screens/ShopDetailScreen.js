@@ -19,16 +19,39 @@ const ShopDetailScreen = ({ navigation, route }) => {
   const { shop } = route.params;
   const [shopDetails, setShopDetails] = useState(shop);
   const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); 
 
   useEffect(() => {
     fetchShopDetails();
   }, []);
+
+  const isShopOpen = (workingHours, isTemporaryClosed) => {
+    if (isTemporaryClosed) return false;
+    const now = new Date();
+    const day = now.getDay(); // 0-6, Sunday=0
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = days[day];
+    const dayHours = workingHours?.[dayName];
+    if (!dayHours || !dayHours.isOpen) return false;
+    const openTime = dayHours.open;
+    const closeTime = dayHours.close;
+    if (!openTime || !closeTime) return false;
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [openH, openM] = openTime.split(':').map(Number);
+    const [closeH, closeM] = closeTime.split(':').map(Number);
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    return currentTime >= openMinutes && currentTime <= closeMinutes;
+  };
 
   const fetchShopDetails = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/shops/${shop._id}`);
       setShopDetails(response.data);
+      const calculatedIsOpen = isShopOpen(response.data.workingHours, response.data.isTemporaryClosed);
+      setIsOpen(calculatedIsOpen);
+      
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch shop details');
     } finally {
@@ -206,8 +229,8 @@ const imagePath = shopDetails.image?.trim();
           <Text style={styles.shopDescription}>{shopDetails.description}</Text>
         )}
         <View style={styles.statusContainer}>
-          <Text style={[styles.statusText, { color: shopDetails.isOpen ? '#16a34a' : '#dc2626' }]}>
-            {shopDetails.isOpen ? '🟢 Open Today' : '🔴 Closed Today'}
+          <Text style={[styles.statusText, { color: isOpen ? '#16a34a' : '#dc2626' }]}>
+            {isOpen ? '🟢 Open Today' : '🔴 Closed Today'}
           </Text>
         </View>
         {shopDetails.businessHours && (
@@ -288,7 +311,7 @@ const imagePath = shopDetails.image?.trim();
       </View>
 
       {/* Basic Printing Services */}
-      <View style={styles.servicesSection}>
+      {isOpen && <View style={styles.servicesSection}>
         <Text style={styles.sectionTitle}>Basic Printing Services (INR)</Text>
         
         {!hasAnyServices() ? (
@@ -313,7 +336,7 @@ const imagePath = shopDetails.image?.trim();
             )}
           </View>
         )}
-      </View>
+      </View>}
 
       {/* Paper Sizes */}
       {(shopDetails.printingServices?.a4Size || shopDetails.printingServices?.a3Size || shopDetails.printingServices?.photoPaper) && (
@@ -352,7 +375,7 @@ const imagePath = shopDetails.image?.trim();
         </View>
       )}
 
-      <View style={styles.footer}>
+      {isOpen && <View style={styles.footer}>
         <TouchableOpacity
           style={styles.orderButton}
           onPress={handleOrderNow}
@@ -362,7 +385,7 @@ const imagePath = shopDetails.image?.trim();
             {!hasAnyServices() ? 'No Services Available' : 'Order Now'}
           </Text>
         </TouchableOpacity>
-      </View>
+      </View>}
     </ScrollView>
   );
 };

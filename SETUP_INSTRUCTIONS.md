@@ -54,13 +54,15 @@ EMAIL_PASS=your_email_password
 ```bash
 # From root directory
 npm start
+or
+npm run dev
 # Server runs on http://localhost:5000
 ```
 
 #### Start Web App
 ```bash
 # From web-app directory
-npm start
+npm run dev
 # Web app runs on http://localhost:3000
 ```
 

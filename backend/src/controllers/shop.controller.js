@@ -197,12 +197,12 @@ export const toggleShopOpen = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    shop.isOpen = !shop.isOpen;
+    shop.isTemporaryClosed = !shop.isTemporaryClosed;
     await shop.save();
 
     res.json({
-      message: `Shop ${shop.isOpen ? 'opened' : 'closed'} successfully`,
-      isOpen: shop.isOpen
+      message: `Shop ${shop.isTemporaryClosed ? 'closed' : 'opened'} successfully`,
+      isTemporaryClosed: shop.isTemporaryClosed
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

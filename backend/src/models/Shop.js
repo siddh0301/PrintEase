@@ -79,9 +79,9 @@ const shopSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  isOpen: {
+  isTemporaryClosed: {
     type: Boolean,
-    default: true
+    default: false
   }
 }, {
   timestamps: true

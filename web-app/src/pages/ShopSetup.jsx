@@ -66,7 +66,9 @@ export default function ShopSetup() {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState(null);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isTemporaryClosed, setIsTemporaryClosed] = useState(false);
+  const [isScheduleAllClosed, setIsScheduleAllClosed] = useState(false);
+  const [isTodayScheduleOpen, setIsTodayScheduleOpen] = useState(true);
   const [shopImage, setShopImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -77,6 +79,28 @@ export default function ShopSetup() {
   const lat = watch('location.lat');
   const lng = watch('location.lng');
   const address = watch('address');
+  const workingHours = watch('workingHours');
+
+  const getTodayKey = () => {
+    return new Date()
+      .toLocaleDateString('en-US', { weekday: 'long' })
+      .toLowerCase();
+  };
+
+  useEffect(() => {
+    if (!workingHours) {
+      return;
+    }
+
+    const allClosed = Object.values(workingHours).every(
+      (day) => !day?.isOpen
+    );
+    setIsScheduleAllClosed(allClosed);
+
+    const todayKey = getTodayKey();
+    const todayConfig = workingHours[todayKey];
+    setIsTodayScheduleOpen(Boolean(todayConfig?.isOpen));
+  }, [workingHours]);
 
 
   const fetchMyLocation = () => {
@@ -108,7 +132,6 @@ export default function ShopSetup() {
       if (shops.length > 0) {
         const shop = shops[0];
         setShopId(shop._id);
-        setIsOpen(shop.isOpen);
 
         // Load existing shop image
         if (shop.image) {
@@ -118,6 +141,15 @@ export default function ShopSetup() {
         const mapped = mapShopToFormValues(shop);
         reset(mapped);
         setSavedSnapshot(mapped);
+
+        const sourceWorkingHours = shop.workingHours || mapped.workingHours || {};
+        const originalClosed = Object.values(sourceWorkingHours).every(
+          (day) => !day?.isOpen
+        );
+        setIsScheduleAllClosed(originalClosed);
+
+        const todayKey = getTodayKey();
+        setIsTodayScheduleOpen(Boolean(sourceWorkingHours[todayKey]?.isOpen));
       }
     } catch {
       toast.error('Failed to load shop');
@@ -188,9 +220,16 @@ export default function ShopSetup() {
   };
 
   const handleToggleOpen = async () => {
+    if (!isTodayScheduleOpen) {
+      toast.error(
+        'Today is scheduled closed, temporary open/close toggle is disabled.'
+      );
+      return;
+    }
+
     try {
       const res = await toggleShopOpen(shopId);
-      setIsOpen(res.data.isOpen);
+      setIsTemporaryClosed(res.data.isTemporaryClosed);
       toast.success(res.data.message);
     } catch (err) {
       toast.error('Failed to toggle shop status');
@@ -276,8 +315,12 @@ export default function ShopSetup() {
           </h1>
           {shopId && (
             <p className="text-sm text-gray-600 mt-1">
-              Status: <span className={isOpen ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                {isOpen ? 'Open' : 'Closed'}
+              Status: <span className={(!isTodayScheduleOpen || isTemporaryClosed) ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                {!isTodayScheduleOpen
+                  ? 'Closed (scheduled off)'
+                  : isTemporaryClosed
+                  ? 'Closed (temporarily closed)'
+                  : 'Open'}
               </span>
             </p>
           )}
@@ -287,9 +330,20 @@ export default function ShopSetup() {
           {shopId && (
             <button
               onClick={handleToggleOpen}
-              className={`px-4 py-2 rounded text-white ${isOpen ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+              disabled={!isTodayScheduleOpen}
+              className={`px-4 py-2 rounded text-white ${
+                !isTodayScheduleOpen
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : isTemporaryClosed
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
             >
-              {isOpen ? 'Close for Today' : 'Open Shop'}
+              {!isTodayScheduleOpen
+                ? 'Unavailable (today closed)'
+                : isTemporaryClosed
+                ? 'Open Shop'
+                : 'Close for Today'}
             </button>
           )}
 
