@@ -89,8 +89,7 @@ const MyOrdersScreen = ({ navigation }) => {
     <TouchableOpacity
       style={styles.orderCard}
       onPress={() => {
-        // Navigate to order details
-        Alert.alert('Order Details', `Order #${item.orderNumber}\nStatus: ${item.status}\nAmount: ₹${item.totalAmount}`);
+        navigation.navigate('OrderDetails', { orderId: item._id });
       }}
     >
       <View style={styles.orderHeader}>

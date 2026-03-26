@@ -11,15 +11,22 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {},
+    "android": {
+      "package": "com.siddh_ranpariya.xeroxshop"
+    },
     "web": {},
     "plugins": [
-  [
-    "@stripe/stripe-react-native",
-    {
-      "merchantIdentifier": "merchant.com.printease"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.printease"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5adde62c-33f7-43db-be68-36b223493966"
+      }
     }
-  ]
-]
   }
 }

@@ -340,3 +340,42 @@ export const getOrderById = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch order', error: error.message });
   }
 };
+
+export const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('customer', 'name phone email')
+      .populate('shop', 'shopName owner');
+
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    // Check if user is customer
+    const isCustomer = order.customer._id.toString() === req.user._id.toString();
+
+    if (!isCustomer) {
+      return res.status(403).json({ message: 'Only customer can cancel their order' });
+    }
+
+    // Can only cancel if order is pending or accepted
+    if (order.status !== 'pending' && order.status !== 'accepted') {
+      return res.status(400).json({ message: `Cannot cancel order with status: ${order.status}` });
+    }
+
+    // Update order status to cancelled
+    order.status = 'cancelled';
+    await order.save();
+
+    // Create notification for shop owner
+    await Notification.create({
+      user: order.shop.owner,
+      order: order._id,
+      title: `Order #${order.orderNumber} Cancelled`,
+      message: `Order #${order.orderNumber} has been cancelled by customer`,
+      type: 'order_update'
+    });
+
+    res.json({ message: 'Order cancelled successfully', order });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to cancel order', error: error.message });
+  }
+};
