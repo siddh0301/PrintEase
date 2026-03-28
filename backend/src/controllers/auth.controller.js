@@ -48,18 +48,22 @@ export const requestOtp = async (req, res) => {
 
     await user.save();
 
-    // Send OTP via email (if we have a real email)
-    if (email) {
-      await transporter.sendMail({
-        from: config.EMAIL_USER,
-        to: email,
-        subject: 'Your login OTP',
-        text: `Your login code is: ${code}. It expires in 5 minutes.`,
-        html: `<p>Your login code is: <strong>${code}</strong>.</p><p>It expires in 5 minutes.</p>`,
-      });
-      console.log(`OTP sent to ${email}: ${code}`);
-    } else {
-      console.log(`OTP generated for phone user ${phone || '[unknown]'}: ${code}`);
+    if(process.env.NODE_ENV === "production"){
+      // Send OTP via email (if we have a real email)
+      if (email) {
+        await transporter.sendMail({
+          from: config.EMAIL_USER,
+          to: email,
+          subject: 'Your login OTP',
+          text: `Your login code is: ${code}. It expires in 5 minutes.`,
+          html: `<p>Your login code is: <strong>${code}</strong>.</p><p>It expires in 5 minutes.</p>`,
+        });
+        console.log(`OTP sent to ${email}: ${code}`);
+      } else {
+        console.log(`OTP generated for phone user ${phone || '[unknown]'}: ${code}`);
+      }
+    } else{
+      console.log(`Otp for ${email} : ${code}`);
     }
 
     return res.json({
