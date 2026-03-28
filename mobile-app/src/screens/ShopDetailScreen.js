@@ -19,7 +19,7 @@ const ShopDetailScreen = ({ navigation, route }) => {
   const { shop } = route.params;
   const [shopDetails, setShopDetails] = useState(shop);
   const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false); 
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     fetchShopDetails();
@@ -51,7 +51,7 @@ const ShopDetailScreen = ({ navigation, route }) => {
       setShopDetails(response.data);
       const calculatedIsOpen = isShopOpen(response.data.workingHours, response.data.isTemporaryClosed);
       setIsOpen(calculatedIsOpen);
-      
+
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch shop details');
     } finally {
@@ -60,15 +60,17 @@ const ShopDetailScreen = ({ navigation, route }) => {
   };
 
   const openLocationInMaps = async () => {
-    const { latitude, longitude } = shopDetails.location?.coordinates || {};
+    const coordinates = shopDetails.location?.coordinates;
+    const longitude = coordinates?.[0];
+    const latitude = coordinates?.[1];
     const address = `${shopDetails.address?.street}, ${shopDetails.address?.city}, ${shopDetails.address?.state} ${shopDetails.address?.pincode}`;
 
     if (latitude && longitude) {
       // Use coordinates if available
       const url = Platform.select({
-        ios: `maps://app?daddr=${latitude},${longitude}`,
-        android: `geo:${latitude},${longitude}?q=${encodeURIComponent(address)}`,
-        default: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+        ios: `maps://app?daddr=${latitude},${longitude}&dirflg=d`,
+        android: `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encodeURIComponent(shopDetails.shopName || 'Shop Location')})`,
+        default: `https://www.google.com/maps/@${latitude},${longitude},17z`,
       });
 
       try {
@@ -77,7 +79,7 @@ const ShopDetailScreen = ({ navigation, route }) => {
           await Linking.openURL(url);
         } else {
           // Fallback to web URL
-          await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+          await Linking.openURL(`https://www.google.com/maps/@${latitude},${longitude},17z`);
         }
       } catch (error) {
         Alert.alert('Error', 'Unable to open maps application');
@@ -95,7 +97,7 @@ const ShopDetailScreen = ({ navigation, route }) => {
 
   const renderPrintingService = (type, singlePrice, doublePrice) => {
     if (!singlePrice && !doublePrice) return null;
-    
+
     return (
       <View style={styles.serviceCard}>
         <View style={styles.serviceInfo}>
@@ -125,7 +127,7 @@ const ShopDetailScreen = ({ navigation, route }) => {
 
   const renderServiceItem = (title, price, unit = 'per piece') => {
     if (!price || price <= 0) return null;
-    
+
     return (
       <View style={styles.serviceCard}>
         <View style={styles.serviceInfo}>
@@ -143,8 +145,8 @@ const ShopDetailScreen = ({ navigation, route }) => {
   };
 
   const handleServiceSelect = (serviceType, singlePrice, doublePrice) => {
-    navigation.navigate('Order', { 
-      shop: shopDetails, 
+    navigation.navigate('Order', {
+      shop: shopDetails,
       selectedService: {
         type: serviceType,
         singlePrice,
@@ -154,46 +156,46 @@ const ShopDetailScreen = ({ navigation, route }) => {
   };
 
   const handleOrderNow = () => {
-    const hasAnyServices = shopDetails.printingServices?.blackWhite || 
-                          shopDetails.printingServices?.color ||
-                          shopDetails.printingServices?.a4Size ||
-                          shopDetails.printingServices?.a3Size ||
-                          shopDetails.printingServices?.photoPaper ||
-                          shopDetails.printingServices?.lamination ||
-                          shopDetails.printingServices?.binding ||
-                          shopDetails.printingServices?.scanning ||
-                          shopDetails.printingServices?.pen ||
-                          shopDetails.printingServices?.notebook ||
-                          shopDetails.printingServices?.file ||
-                          shopDetails.printingServices?.stapler;
-    
+    const hasAnyServices = shopDetails.printingServices?.blackWhite ||
+      shopDetails.printingServices?.color ||
+      shopDetails.printingServices?.a4Size ||
+      shopDetails.printingServices?.a3Size ||
+      shopDetails.printingServices?.photoPaper ||
+      shopDetails.printingServices?.lamination ||
+      shopDetails.printingServices?.binding ||
+      shopDetails.printingServices?.scanning ||
+      shopDetails.printingServices?.pen ||
+      shopDetails.printingServices?.notebook ||
+      shopDetails.printingServices?.file ||
+      shopDetails.printingServices?.stapler;
+
     if (!hasAnyServices) {
       Alert.alert('No Services', 'This shop has no services available.');
       return;
     }
-    
-    navigation.navigate('Order', { 
-      shop: shopDetails 
+
+    navigation.navigate('Order', {
+      shop: shopDetails
     });
   };
 
   const hasAnyServices = () => {
-    return shopDetails.printingServices?.blackWhite || 
-           shopDetails.printingServices?.color ||
-           shopDetails.printingServices?.a4Size ||
-           shopDetails.printingServices?.a3Size ||
-           shopDetails.printingServices?.photoPaper ||
-           shopDetails.printingServices?.lamination ||
-           shopDetails.printingServices?.binding ||
-           shopDetails.printingServices?.scanning ||
-           shopDetails.printingServices?.pen ||
-           shopDetails.printingServices?.notebook ||
-           shopDetails.printingServices?.file ||
-           shopDetails.printingServices?.stapler;
+    return shopDetails.printingServices?.blackWhite ||
+      shopDetails.printingServices?.color ||
+      shopDetails.printingServices?.a4Size ||
+      shopDetails.printingServices?.a3Size ||
+      shopDetails.printingServices?.photoPaper ||
+      shopDetails.printingServices?.lamination ||
+      shopDetails.printingServices?.binding ||
+      shopDetails.printingServices?.scanning ||
+      shopDetails.printingServices?.pen ||
+      shopDetails.printingServices?.notebook ||
+      shopDetails.printingServices?.file ||
+      shopDetails.printingServices?.stapler;
   };
-    console.log("IMAGE PATH:", shopDetails.image);
-    const BASE_URL = "http://192.168.1.3:5000";
-const imagePath = shopDetails.image?.trim();
+  console.log("IMAGE PATH:", shopDetails.image);
+  const BASE_URL = "http://192.168.1.3:5000";
+  const imagePath = shopDetails.image?.trim();
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -209,12 +211,12 @@ const imagePath = shopDetails.image?.trim();
         <View style={styles.placeholder} />
       </View>
       {/* Shop Image */}
-      
+
       {shopDetails.image && (
         <View style={styles.shopImageContainer}>
           <Image
-            source={{uri: `${BASE_URL}${imagePath}`}}
-            
+            source={{ uri: `${BASE_URL}${imagePath}` }}
+
             style={styles.shopImage}
             resizeMode="cover"
           />
@@ -236,7 +238,7 @@ const imagePath = shopDetails.image?.trim();
         {shopDetails.businessHours && (
           <Text style={styles.businessHours}>🕒 {shopDetails.businessHours}</Text>
         )}
-        
+
         <View style={styles.ratingContainer}>
           <Ionicons name="star" size={20} color="#fbbf24" />
           <Text style={styles.rating}>
@@ -265,7 +267,7 @@ const imagePath = shopDetails.image?.trim();
         >
           <Ionicons name="location-outline" size={20} color="#3b82f6" />
           <Text style={styles.address}>
-            {shopDetails.address?.street}, {shopDetails.address?.city}, {shopDetails.address?.state} - {shopDetails.address?.pincode}
+            {shopDetails.address?.shopNumber}, {shopDetails.address?.street}, {shopDetails.address?.city}, {shopDetails.address?.state} - {shopDetails.address?.pincode}
           </Text>
           <Ionicons name="open-outline" size={16} color="#3b82f6" />
         </TouchableOpacity>
@@ -313,7 +315,7 @@ const imagePath = shopDetails.image?.trim();
       {/* Basic Printing Services */}
       {isOpen && <View style={styles.servicesSection}>
         <Text style={styles.sectionTitle}>Basic Printing Services (INR)</Text>
-        
+
         {!hasAnyServices() ? (
           <View style={styles.emptyServices}>
             <Ionicons name="document-outline" size={48} color="#9ca3af" />
@@ -327,7 +329,7 @@ const imagePath = shopDetails.image?.trim();
               shopDetails.printingServices?.blackWhite?.singleSidedPrice,
               shopDetails.printingServices?.blackWhite?.doubleSidedPrice
             )}
-            
+
             {/* Color Printing */}
             {renderPrintingService(
               'Color',
