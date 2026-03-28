@@ -29,6 +29,9 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 // Icons
 import { Ionicons } from '@expo/vector-icons';
 
+//Prevent app to hide behind status bar
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -125,12 +128,14 @@ export default function App() {
   }, []);
 
   return (
+    <SafeAreaView style={{flex:1}}>
     <PaperProvider>
       <AuthProvider>
         <StatusBar style="auto" />
         <AppNavigator />
       </AuthProvider>
     </PaperProvider>
+    </SafeAreaView >
   );
 }
 
