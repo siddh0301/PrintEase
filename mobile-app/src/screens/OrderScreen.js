@@ -9,6 +9,7 @@ import {
   TextInput,
   Linking,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -207,7 +208,12 @@ const OrderScreen = ({ navigation, route }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+    >
+      <ScrollView style={styles.scrollContainer}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -222,7 +228,7 @@ const OrderScreen = ({ navigation, route }) => {
       <View style={styles.shopInfo}>
         <Text style={styles.shopName}>{shop.shopName}</Text>
         <Text style={styles.shopAddress}>
-          {shop.address?.street}, {shop.address?.city}
+          {shop.address?.shopNumber}, {shop.address?.street}, {shop.address?.city}
         </Text>
       </View>
 
@@ -432,13 +438,15 @@ const OrderScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 40,
     flex: 1,
+  },
+  scrollContainer: {
     backgroundColor: '#f8fafc',
   },
   header: {
