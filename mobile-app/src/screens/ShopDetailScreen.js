@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import openLocationInMaps from '../component/openLoactionInMaps';
 import {
   View,
   Text,
@@ -7,7 +8,6 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
-  Platform,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,42 +55,6 @@ const ShopDetailScreen = ({ navigation, route }) => {
       Alert.alert('Error', 'Failed to fetch shop details');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const openLocationInMaps = async () => {
-    const coordinates = shopDetails.location?.coordinates;
-    const longitude = coordinates?.[0];
-    const latitude = coordinates?.[1];
-    const address = `${shopDetails.address?.street}, ${shopDetails.address?.city}, ${shopDetails.address?.state} ${shopDetails.address?.pincode}`;
-
-    if (latitude && longitude) {
-      // Use coordinates if available
-      const url = Platform.select({
-        ios: `maps://app?daddr=${latitude},${longitude}&dirflg=d`,
-        android: `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encodeURIComponent(shopDetails.shopName || 'Shop Location')})`,
-        default: `https://www.google.com/maps/@${latitude},${longitude},17z`,
-      });
-
-      try {
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-          await Linking.openURL(url);
-        } else {
-          // Fallback to web URL
-          await Linking.openURL(`https://www.google.com/maps/@${latitude},${longitude},17z`);
-        }
-      } catch (error) {
-        Alert.alert('Error', 'Unable to open maps application');
-      }
-    } else {
-      // Use address if coordinates not available
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-      try {
-        await Linking.openURL(url);
-      } catch (error) {
-        Alert.alert('Error', 'Unable to open maps');
-      }
     }
   };
 
@@ -170,7 +134,7 @@ const ShopDetailScreen = ({ navigation, route }) => {
 
         <TouchableOpacity
           style={styles.addressContainer}
-          onPress={openLocationInMaps}
+          onPress={() => openLocationInMaps(shopDetails)}
         >
           <Ionicons name="location-outline" size={20} color="#3b82f6" />
           <Text style={styles.address}>
@@ -190,24 +154,22 @@ const ShopDetailScreen = ({ navigation, route }) => {
 
         {shopDetails.contactInfo?.phone && (
           <TouchableOpacity
-            style={styles.contactContainer}
-            onPress={() => {
+          style={styles.contactContainer}
+            onPress={async () => {
               const phoneNumber = shopDetails.contactInfo.phone.replace(/\s+/g, '');
               const url = `tel:${phoneNumber}`;
-              Linking.canOpenURL(url).then(supported => {
-                if (supported) {
-                  Linking.openURL(url);
-                } else {
-                  Alert.alert('Error', 'Unable to make phone call');
-                }
-              });
+              try{
+                await Linking.openURL(url);
+              } catch(e){
+                Alert.alert('Error', 'Unable to make phone call');
+              }
             }}
           >
-            <Ionicons name="call-outline" size={20} color="#10b981" />
-            <Text style={styles.contact}>
-              {shopDetails.contactInfo.phone}
-            </Text>
-            <Ionicons name="call" size={16} color="#10b981" />
+          <Ionicons name="call-outline" size={20} color="#10b981" />
+          <Text style={styles.contact}>
+            {shopDetails.contactInfo.phone}
+          </Text>
+          <Ionicons name="call" size={16} color="#10b981" />
           </TouchableOpacity>
         )}
 

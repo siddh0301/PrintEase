@@ -79,7 +79,7 @@ const RateShopScreen = ({ navigation, route }) => {
               name={
                 star <= (hoveredRating || rating) ? 'star' : 'star-outline'
               }
-              size={48}
+              size={40}
               color={star <= (hoveredRating || rating) ? '#fbbf24' : '#d1d5db'}
             />
           </TouchableOpacity>
@@ -265,12 +265,12 @@ const styles = StyleSheet.create({
   starPickerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
   },
   starButton: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },

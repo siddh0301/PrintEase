@@ -10,10 +10,12 @@ import {
   Linking,
   Platform,
   Image,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import * as Location from 'expo-location';
+import openLocationInMaps from '../component/openLoactionInMaps';
+import SkeletonLoader from '../component/SkeletonLoader';
 import { colors, spacing, shadows } from '../styles/theme';
 
 const ShopListScreen = ({ navigation }) => {
@@ -23,34 +25,19 @@ const ShopListScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchNearbyShops();
+    fetchShops();
   }, []);
 
   useEffect(() => {
     filterShops();
   }, [searchQuery, shops]);
 
-  const fetchNearbyShops = async () => {
+  const fetchShops = async () => {
     try {
-      setLoading(true);
-      // Ask for permission and get current position
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Location permission is needed to show nearby shops');
-        // Fallback: load all shops
-        const all = await axios.get('/api/shops');
-        setShops(all.data);
-        return;
-      }
-
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude, longitude } = pos.coords;
-      const response = await axios.get(`/api/shops/nearby`, {
-        params: { lat: latitude, lng: longitude, radius: 5000 }
-      });
+      const response = await axios.get('/api/shops');
       setShops(response.data);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch nearby shops');
+      Alert.alert('Error', 'Failed to fetch shops');
     } finally {
       setLoading(false);
     }
@@ -68,40 +55,6 @@ const ShopListScreen = ({ navigation }) => {
       shop.address?.street?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredShops(filtered);
-  };
-
-  const openLocationInMaps = async (shop) => {
-    const { latitude, longitude } = shop.location?.coordinates || {};
-    const address = `${shop.address?.street}, ${shop.address?.city}, ${shop.address?.state} ${shop.address?.pincode}`;
-
-    if (latitude && longitude) {
-      // Use coordinates if available
-      const url = Platform.select({
-        ios: `maps://app?daddr=${latitude},${longitude}`,
-        android: `geo:${latitude},${longitude}?q=${encodeURIComponent(address)}`,
-        default: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
-      });
-
-      try {
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-          await Linking.openURL(url);
-        } else {
-          // Fallback to web URL
-          await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
-        }
-      } catch (error) {
-        Alert.alert('Error', 'Unable to open maps application');
-      }
-    } else {
-      // Use address if coordinates not available
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-      try {
-        await Linking.openURL(url);
-      } catch (error) {
-        Alert.alert('Error', 'Unable to open maps');
-      }
-    }
   };
 
   const hasPrintingServices = (shop) => {
@@ -191,7 +144,6 @@ const ShopListScreen = ({ navigation }) => {
           <Text style={styles.shopAddress} numberOfLines={2}>
             {item.address?.street}, {item.address?.city}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color="#3b82f6" />
         </TouchableOpacity>
 
         <View style={styles.servicesContainer}>
@@ -212,10 +164,49 @@ const ShopListScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const renderSkeletonItem = () => (
+    <SkeletonLoader type="shopListCard" style={styles.skeletonContainer} />
+  );
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading shops...</Text>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Nearby Shops (within 5 km)</Text>
+          <View style={styles.placeholder} />
+        </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <Ionicons name="search" size={20} color="#6b7280" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search shops by name or location"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              editable={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#6b7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <FlatList
+          data={Array(8).fill({})}
+          renderItem={renderSkeletonItem}
+          keyExtractor={(item, index) => `skeleton-${index}`}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+        />
       </View>
     );
   }
@@ -441,6 +432,9 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
+  },
+  skeletonContainer: {
+    marginBottom: spacing.sm,
   },
 });
 

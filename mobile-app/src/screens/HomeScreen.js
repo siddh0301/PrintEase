@@ -5,29 +5,68 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Image,
+  RefreshControl,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import * as Location from 'expo-location';
 import { useAuth } from '../contexts/AuthContext';
+import SkeletonLoader from '../component/SkeletonLoader';
 import { colors, spacing, shadows } from '../styles/theme';
 
 const HomeScreen = ({ navigation }) => {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchNearbyShops();
+    fetchAllShops();
   }, []);
 
-  const fetchNearbyShops = async () => {
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try{
+      await fetchAllShops();
+    }catch(e){
+
+    }finally {
+      setRefreshing(false);
+    }
+  };
+
+  const fetchAllShops = async () => {
     try {
+      setLoading(true);
       const response = await axios.get('/api/shops');
       setShops(response.data);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch shops');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchNearbyShops = async () => {
+    try {
+      setLoading(true);
+      // Ask for permission and get current position
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Location permission is needed to show nearby shops');
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = pos.coords;
+      const response = await axios.get(`/api/shops/nearby`, {
+        params: { lat: latitude, lng: longitude, radius: 5000 }
+      });
+      setShops(response.data);
+      Alert.alert('Success', 'Showing shops within 5km of your location');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch nearby shops');
     } finally {
       setLoading(false);
     }
@@ -57,13 +96,17 @@ const HomeScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading shops...</Text>
-      </View>
-    );
-  }
+  const renderSkeletonItem = () => (
+    <SkeletonLoader type="shopListCard" style={styles.skeletonContainer} />
+  );
+
+  // if (loading) {
+  //   return (
+  //     <View style={styles.loadingContainer}>
+  //     <Text>Loading shops...</Text>
+  //   </View>
+  //   );
+  // }
 
   return (
     <View style={styles.container}>
@@ -92,19 +135,34 @@ const HomeScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Nearby Shops</Text>
+        <Text style={styles.sectionTitle}>Featured Shops</Text>
         <TouchableOpacity onPress={() => navigation.navigate('ShopList')}>
           <Text style={styles.seeAllText}>See All</Text>
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={shops.slice(0, 5)}
-        renderItem={renderShopItem}
-        keyExtractor={(item) => item._id}
+        data={loading ? Array(3).fill({}) : shops.slice(0, 5)}
+        renderItem={loading ? renderSkeletonItem : renderShopItem}
+        keyExtractor={(item, index) => loading ? `skeleton-${index}` : item._id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
+
+      {/* Floating Location Button */}
+      <View>
+        <TouchableOpacity
+          
+          style={styles.floatingButton}
+          onPress={fetchNearbyShops}
+          >
+          <Ionicons name="location" size={24} color="white" />
+          <Text style={styles.floatingButtonText}>Nearby shops</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -225,6 +283,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     marginLeft: 6,
+  },
+  skeletonContainer: {
+    marginBottom: spacing.sm,
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 25,
+    backgroundColor: colors.primary,
+    ...shadows.default,
+  },
+  floatingButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: spacing.sm,
   },
 });
 

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import SkeletonLoader from '../component/SkeletonLoader';
 import { colors, spacing, shadows } from '../styles/theme';
 
 const MyOrdersScreen = ({ navigation }) => {
@@ -23,6 +24,7 @@ const MyOrdersScreen = ({ navigation }) => {
 
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       const response = await axios.get('/api/orders/customer/my-orders');
       setOrders(response.data);
     } catch (error) {
@@ -37,6 +39,10 @@ const MyOrdersScreen = ({ navigation }) => {
     await fetchOrders();
     setRefreshing(false);
   };
+  
+  const renderSkeletonItem = () => (
+    <SkeletonLoader type="orderListCard" style={styles.skeletonContainer} />
+  );
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -134,14 +140,6 @@ const MyOrdersScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading orders...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -154,30 +152,38 @@ const MyOrdersScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={orders}
-        renderItem={renderOrderItem}
+      {/* <FlatList
+        data={Array(1).fill({})}
+        renderItem={renderSkeletonItem}
         keyExtractor={(item) => item._id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
+        style={{height:250}}
+      /> */}
+      <FlatList
+        data={loading ? Array(5).fill({}) : orders}
+        renderItem={loading ? renderSkeletonItem : renderOrderItem}
+        keyExtractor={(item, index) => loading ? `skeleton-${index}` : item._id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color="#9ca3af" />
-            <Text style={styles.emptyTitle}>No orders yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Start by placing your first order from a nearby shop
-            </Text>
-            <TouchableOpacity
-              style={styles.browseButton}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Text style={styles.browseButtonText}>Browse Shops</Text>
-            </TouchableOpacity>
-          </View>
-        }
+        // ListEmptyComponent={
+        //   <View style={styles.emptyContainer}>
+        //     <Ionicons name="receipt-outline" size={64} color="#9ca3af" />
+        //     <Text style={styles.emptyTitle}>No orders yet</Text>
+        //     <Text style={styles.emptySubtitle}>
+        //       Start by placing your first order from a nearby shop
+        //     </Text>
+        //     <TouchableOpacity
+        //       style={styles.browseButton}
+        //       onPress={() => navigation.navigate('Home')}
+        //     >
+        //       <Text style={styles.browseButtonText}>Browse Shops</Text>
+        //     </TouchableOpacity>
+        //   </View>
+        // }
       />
     </View>
   );
@@ -341,6 +347,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  skeletonContainer: {
+    marginBottom: spacing.sm,
   },
 });
 
