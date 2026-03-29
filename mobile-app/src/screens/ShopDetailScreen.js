@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   Alert,
   Linking,
   Platform,
@@ -95,104 +94,12 @@ const ShopDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  const renderPrintingService = (type, singlePrice, doublePrice) => {
-    if (!singlePrice && !doublePrice) return null;
-
-    return (
-      <View style={styles.serviceCard}>
-        <View style={styles.serviceInfo}>
-          <Text style={styles.serviceName}>{type} Printing</Text>
-          <View style={styles.priceContainer}>
-            {singlePrice > 0 && (
-              <Text style={styles.servicePrice}>
-                Single-sided: ₹{singlePrice}
-              </Text>
-            )}
-            {doublePrice > 0 && (
-              <Text style={styles.servicePrice}>
-                Double-sided: ₹{doublePrice}
-              </Text>
-            )}
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.selectButton}
-          onPress={() => handleServiceSelect(type, singlePrice, doublePrice)}
-        >
-          <Text style={styles.selectButtonText}>Select</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderServiceItem = (title, price, unit = 'per piece') => {
-    if (!price || price <= 0) return null;
-
-    return (
-      <View style={styles.serviceCard}>
-        <View style={styles.serviceInfo}>
-          <Text style={styles.serviceName}>{title}</Text>
-          <Text style={styles.servicePrice}>₹{price} {unit}</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.selectButton}
-          onPress={() => handleServiceSelect(title, price, 0)}
-        >
-          <Text style={styles.selectButtonText}>Select</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const handleServiceSelect = (serviceType, singlePrice, doublePrice) => {
-    navigation.navigate('Order', {
-      shop: shopDetails,
-      selectedService: {
-        type: serviceType,
-        singlePrice,
-        doublePrice
-      }
-    });
-  };
-
   const handleOrderNow = () => {
-    const hasAnyServices = shopDetails.printingServices?.blackWhite ||
-      shopDetails.printingServices?.color ||
-      shopDetails.printingServices?.a4Size ||
-      shopDetails.printingServices?.a3Size ||
-      shopDetails.printingServices?.photoPaper ||
-      shopDetails.printingServices?.lamination ||
-      shopDetails.printingServices?.binding ||
-      shopDetails.printingServices?.scanning ||
-      shopDetails.printingServices?.pen ||
-      shopDetails.printingServices?.notebook ||
-      shopDetails.printingServices?.file ||
-      shopDetails.printingServices?.stapler;
-
-    if (!hasAnyServices) {
-      Alert.alert('No Services', 'This shop has no services available.');
-      return;
-    }
-
     navigation.navigate('Order', {
       shop: shopDetails
     });
   };
 
-  const hasAnyServices = () => {
-    return shopDetails.printingServices?.blackWhite ||
-      shopDetails.printingServices?.color ||
-      shopDetails.printingServices?.a4Size ||
-      shopDetails.printingServices?.a3Size ||
-      shopDetails.printingServices?.photoPaper ||
-      shopDetails.printingServices?.lamination ||
-      shopDetails.printingServices?.binding ||
-      shopDetails.printingServices?.scanning ||
-      shopDetails.printingServices?.pen ||
-      shopDetails.printingServices?.notebook ||
-      shopDetails.printingServices?.file ||
-      shopDetails.printingServices?.stapler;
-  };
   console.log("IMAGE PATH:", shopDetails.image);
   const BASE_URL = "http://192.168.1.3:5000";
   const imagePath = shopDetails.image?.trim();
@@ -312,80 +219,12 @@ const ShopDetailScreen = ({ navigation, route }) => {
         )}
       </View>
 
-      {/* Basic Printing Services */}
-      {isOpen && <View style={styles.servicesSection}>
-        <Text style={styles.sectionTitle}>Basic Printing Services (INR)</Text>
-
-        {!hasAnyServices() ? (
-          <View style={styles.emptyServices}>
-            <Ionicons name="document-outline" size={48} color="#9ca3af" />
-            <Text style={styles.emptyServicesText}>No printing services available</Text>
-          </View>
-        ) : (
-          <View style={styles.servicesList}>
-            {/* Black & White Printing */}
-            {renderPrintingService(
-              'Black & White',
-              shopDetails.printingServices?.blackWhite?.singleSidedPrice,
-              shopDetails.printingServices?.blackWhite?.doubleSidedPrice
-            )}
-
-            {/* Color Printing */}
-            {renderPrintingService(
-              'Color',
-              shopDetails.printingServices?.color?.singleSidedPrice,
-              shopDetails.printingServices?.color?.doubleSidedPrice
-            )}
-          </View>
-        )}
-      </View>}
-
-      {/* Paper Sizes */}
-      {(shopDetails.printingServices?.a4Size || shopDetails.printingServices?.a3Size || shopDetails.printingServices?.photoPaper) && (
-        <View style={styles.servicesSection}>
-          <Text style={styles.sectionTitle}>Paper Sizes & Types (INR)</Text>
-          <View style={styles.servicesList}>
-            {renderServiceItem('A4 Size', shopDetails.printingServices?.a4Size, 'per page')}
-            {renderServiceItem('A3 Size', shopDetails.printingServices?.a3Size, 'per page')}
-            {renderServiceItem('Photo Paper', shopDetails.printingServices?.photoPaper, 'per page')}
-          </View>
-        </View>
-      )}
-
-      {/* Additional Services */}
-      {(shopDetails.printingServices?.lamination || shopDetails.printingServices?.binding || shopDetails.printingServices?.scanning) && (
-        <View style={styles.servicesSection}>
-          <Text style={styles.sectionTitle}>Additional Services (INR)</Text>
-          <View style={styles.servicesList}>
-            {renderServiceItem('Lamination', shopDetails.printingServices?.lamination, 'per page')}
-            {renderServiceItem('Binding', shopDetails.printingServices?.binding, 'per document')}
-            {renderServiceItem('Scanning', shopDetails.printingServices?.scanning, 'per page')}
-          </View>
-        </View>
-      )}
-
-      {/* Stationery Items */}
-      {(shopDetails.printingServices?.pen || shopDetails.printingServices?.notebook || shopDetails.printingServices?.file || shopDetails.printingServices?.stapler) && (
-        <View style={styles.servicesSection}>
-          <Text style={styles.sectionTitle}>Stationery Items (INR)</Text>
-          <View style={styles.servicesList}>
-            {renderServiceItem('Pen', shopDetails.printingServices?.pen)}
-            {renderServiceItem('Notebook', shopDetails.printingServices?.notebook)}
-            {renderServiceItem('File', shopDetails.printingServices?.file)}
-            {renderServiceItem('Stapler', shopDetails.printingServices?.stapler)}
-          </View>
-        </View>
-      )}
-
       {isOpen && <View style={styles.footer}>
         <TouchableOpacity
           style={styles.orderButton}
           onPress={handleOrderNow}
-          disabled={!hasAnyServices()}
         >
-          <Text style={styles.orderButtonText}>
-            {!hasAnyServices() ? 'No Services Available' : 'Order Now'}
-          </Text>
+          <Text style={styles.orderButtonText}>Order Now</Text>
         </TouchableOpacity>
       </View>}
     </ScrollView>
@@ -528,67 +367,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     fontWeight: '500',
-  },
-  servicesSection: {
-    backgroundColor: 'white',
-    padding: 20,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16,
-  },
-  servicesList: {
-    gap: 12,
-  },
-  serviceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  serviceInfo: {
-    flex: 1,
-  },
-  serviceName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
-  },
-  priceContainer: {
-    gap: 4,
-  },
-  servicePrice: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  selectButton: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  selectButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyServices: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyServicesText: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginTop: 12,
   },
   footer: {
     padding: 20,
