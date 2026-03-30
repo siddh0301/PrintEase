@@ -5,33 +5,82 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
+  Image,
   RefreshControl,
   Alert,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as Location from 'expo-location';
 import { useAuth } from '../contexts/AuthContext';
 import SkeletonLoader from '../component/SkeletonLoader';
+import openLocationInMaps from '../component/openLoactionInMaps';
+import ShopItemCard from '../component/ShopItemCard';
 import { colors, spacing, shadows } from '../styles/theme';
 
 const HomeScreen = ({ navigation }) => {
   const [shops, setShops] = useState([]);
+  const [filteredShops, setFilteredShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  const isShopOpen = (workingHours, isTemporaryClosed) => {
+    if (isTemporaryClosed) return false;
+    const now = new Date();
+    const day = now.getDay(); // 0-6, Sunday=0
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = days[day];
+    const dayHours = workingHours?.[dayName];
+    if (!dayHours || !dayHours.isOpen) return false;
+    const openTime = dayHours.open;
+    const closeTime = dayHours.close;
+    if (!openTime || !closeTime) return false;
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [openH, openM] = openTime.split(':').map(Number);
+    const [closeH, closeM] = closeTime.split(':').map(Number);
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    return currentTime >= openMinutes && currentTime <= closeMinutes;
+  };
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     fetchAllShops();
   }, []);
-
+  useEffect(() => {
+    filterShops();
+  }, [searchQuery, shops]);
   const onRefresh = async () => {
     setRefreshing(true);
-    try{
+    try {
       await fetchAllShops();
-    }catch(e){
+    } catch (e) {
 
-    }finally {
+    } finally {
       setRefreshing(false);
     }
   };
@@ -40,7 +89,11 @@ const HomeScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const response = await axios.get('/api/shops');
-      setShops(response.data);
+      const shopsWithOpenStatus = response.data.map(shop => ({
+        ...shop,
+        isOpen: isShopOpen(shop.workingHours, shop.isTemporaryClosed)
+      }));
+      setShops(shopsWithOpenStatus);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch shops');
     } finally {
@@ -63,7 +116,11 @@ const HomeScreen = ({ navigation }) => {
       const response = await axios.get(`/api/shops/nearby`, {
         params: { lat: latitude, lng: longitude, radius: 5000 }
       });
-      setShops(response.data);
+      const shopsWithOpenStatus = response.data.map(shop => ({
+        ...shop,
+        isOpen: isShopOpen(shop.workingHours, shop.isTemporaryClosed)
+      }));
+      setShops(shopsWithOpenStatus);
       Alert.alert('Success', 'Showing shops within 5km of your location');
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch nearby shops');
@@ -72,28 +129,22 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  const filterShops = () => {
+    if (!searchQuery.trim()) {
+      setFilteredShops(shops);
+      return;
+    }
+
+    const filtered = shops.filter(shop =>
+      shop.shopName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      shop.address?.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      shop.address?.street?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredShops(filtered);
+  };
+
   const renderShopItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.shopCard}
-      onPress={() => navigation.navigate('ShopDetail', { shop: item })}
-    >
-      <View style={styles.shopInfo}>
-        <Text style={styles.shopName}>{item.shopName}</Text>
-        <Text style={styles.shopAddress}>
-          {item.address?.street}, {item.address?.city}
-        </Text>
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={16} color="#fbbf24" />
-          <Text style={styles.rating}>
-            {item.rating?.average?.toFixed(1) || '0.0'}
-          </Text>
-          <Text style={styles.ratingCount}>
-            ({item.rating?.count || 0} reviews)
-          </Text>
-        </View>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-    </TouchableOpacity>
+    <ShopItemCard item={item} navigation={navigation} />
   );
 
   const renderSkeletonItem = () => (
@@ -113,36 +164,37 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hello, {user?.name}!</Text>
-          <Text style={styles.subtitle}>Find nearby Xerox shops</Text>
+          {/* <Text style={styles.subtitle}>Find nearby Xerox shops</Text> */}
         </View>
-        <TouchableOpacity
+        {/*<TouchableOpacity
           style={styles.profileButton}
           onPress={() => navigation.navigate('Profile')}
         >
           <Ionicons name="person-circle" size={32} color="#3b82f6" />
-        </TouchableOpacity>
+        </TouchableOpacity>*/}
       </View>
 
       <View style={styles.searchContainer}>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => navigation.navigate('ShopList')}
-        >
-          <Ionicons name="search" size={20} color="#6b7280" />
-          <Text style={styles.searchText}>Search shops by location</Text>
-          <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
-        </TouchableOpacity>
+        <Ionicons name="search" size={20} color="#6b7280" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search shops by name or location"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color="#6b7280" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Featured Shops</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ShopList')}>
-          <Text style={styles.seeAllText}>See All</Text>
-        </TouchableOpacity>
       </View>
 
       <FlatList
-        data={loading ? Array(3).fill({}) : shops.slice(0, 5)}
+        data={loading ? Array(3).fill({}) : filteredShops}
         renderItem={loading ? renderSkeletonItem : renderShopItem}
         keyExtractor={(item, index) => loading ? `skeleton-${index}` : item._id}
         showsVerticalScrollIndicator={false}
@@ -150,19 +202,31 @@ const HomeScreen = ({ navigation }) => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="storefront-outline" size={64} color="#9ca3af" />
+              <Text style={styles.emptyTitle}>No shops found</Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery ? 'Try adjusting your search' : 'No shops available'}
+              </Text>
+            </View>
+          ) : null
+        }
       />
 
       {/* Floating Location Button */}
-      <View>
-        <TouchableOpacity
-          
-          style={styles.floatingButton}
-          onPress={fetchNearbyShops}
+      {!isKeyboardVisible && (
+        <View>
+          <TouchableOpacity
+            style={styles.floatingButton}
+            onPress={fetchNearbyShops}
           >
-          <Ionicons name="location" size={24} color="white" />
-          <Text style={styles.floatingButtonText}>Nearby shops</Text>
-        </TouchableOpacity>
-      </View>
+            <Ionicons name="location" size={24} color="white" />
+            <Text style={styles.floatingButtonText}>Nearby shops</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -182,10 +246,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: spacing.lg,
+    paddingLeft: spacing.lg + 10,
     backgroundColor: colors.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    ...shadows.default,
   },
   greeting: {
     fontSize: 26,
@@ -203,32 +267,31 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   searchContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginTop: -spacing.md,
-  },
-  searchButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: 14,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.default,
   },
-  searchText: {
+  searchInput: {
     flex: 1,
-    marginLeft: spacing.sm,
+    marginLeft: 12,
     fontSize: 16,
-    color: colors.textMuted,
+    color: '#1f2937',
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    marginVertical: spacing.md,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: 20,
@@ -243,46 +306,6 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-  },
-  shopCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.default,
-  },
-  shopInfo: {
-    flex: 1,
-  },
-  shopName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  shopAddress: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rating: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: 4,
-  },
-  ratingCount: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginLeft: 6,
   },
   skeletonContainer: {
     marginBottom: spacing.sm,
@@ -305,7 +328,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: spacing.sm,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 8,
+    textAlign: 'center',
+  },
 });
 
 export default HomeScreen;
-

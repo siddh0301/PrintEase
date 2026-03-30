@@ -64,6 +64,7 @@ function MainTabs() {
         tabBarActiveTintColor: '#3b82f6',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
+        tabBarHideOnKeyboard: true,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />

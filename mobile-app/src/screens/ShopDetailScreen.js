@@ -154,22 +154,22 @@ const ShopDetailScreen = ({ navigation, route }) => {
 
         {shopDetails.contactInfo?.phone && (
           <TouchableOpacity
-          style={styles.contactContainer}
+            style={styles.contactContainer}
             onPress={async () => {
               const phoneNumber = shopDetails.contactInfo.phone.replace(/\s+/g, '');
               const url = `tel:${phoneNumber}`;
-              try{
+              try {
                 await Linking.openURL(url);
-              } catch(e){
+              } catch (e) {
                 Alert.alert('Error', 'Unable to make phone call');
               }
             }}
           >
-          <Ionicons name="call-outline" size={20} color="#10b981" />
-          <Text style={styles.contact}>
-            {shopDetails.contactInfo.phone}
-          </Text>
-          <Ionicons name="call" size={16} color="#10b981" />
+            <Ionicons name="call-outline" size={20} color="#10b981" />
+            <Text style={styles.contact}>
+              {shopDetails.contactInfo.phone}
+            </Text>
+            <Ionicons name="call" size={16} color="#10b981" />
           </TouchableOpacity>
         )}
 
