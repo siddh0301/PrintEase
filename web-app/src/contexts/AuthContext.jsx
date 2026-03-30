@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from '../api/axiosInstance';
 import toast from 'react-hot-toast';
+import Cookies from 'js-cookie';
 
 const AuthContext = createContext();
 
@@ -18,7 +19,7 @@ export const AuthProvider = ({ children }) => {
 
   // Set up axios defaults
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = Cookies.get('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = Cookies.get('token');
       if (!token) {
         setLoading(false);
         return;
@@ -40,7 +41,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get('/auth/me');
       setUser(response.data.user);
     } catch (error) {
-      localStorage.removeItem('token');
+      Cookies.remove('token');
       delete axios.defaults.headers.common['Authorization'];
     } finally {
       setLoading(false);
@@ -56,7 +57,7 @@ export const AuthProvider = ({ children }) => {
 
       const { token, user } = response.data;
       
-      localStorage.setItem('token', token);
+      Cookies.set('token', token, { expires: 7 });
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
       
@@ -78,7 +79,7 @@ export const AuthProvider = ({ children }) => {
 
       const { token, user } = response.data;
       
-      localStorage.setItem('token', token);
+      Cookies.set('token', token, { expires: 7 });
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
       
@@ -92,7 +93,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    Cookies.remove('token');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
     toast.success('Logged out successfully');

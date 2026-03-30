@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
@@ -17,6 +18,48 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Helper functions for secure storage with fallback
+  const getToken = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        console.log('Token retrieved from SecureStore');
+        return token;
+      }
+    } catch (error) {
+      console.log('SecureStore get failed, using AsyncStorage:', error.message);
+    }
+    // Fallback to AsyncStorage
+    const token = await AsyncStorage.getItem('token');
+    if (token) console.log('Token retrieved from AsyncStorage');
+    return token;
+  };
+
+  const setToken = async (token) => {
+    try {
+      await SecureStore.setItemAsync('token', token);
+      console.log('Token stored in SecureStore');
+      return;
+    } catch (error) {
+      console.log('SecureStore set failed, using AsyncStorage:', error.message);
+    }
+    // Fallback to AsyncStorage
+    await AsyncStorage.setItem('token', token);
+    console.log('Token stored in AsyncStorage');
+  };
+
+  const removeToken = async () => {
+    try {
+      await SecureStore.deleteItemAsync('token');
+      console.log('Token removed from SecureStore');
+    } catch (error) {
+      console.log('SecureStore remove failed, removing from AsyncStorage:', error.message);
+    }
+    // Also remove from AsyncStorage as fallback
+    await AsyncStorage.removeItem('token');
+    console.log('Token removed from AsyncStorage');
+  };
 
   // Set up axios defaults
   useEffect(() => {
@@ -42,7 +85,7 @@ export const AuthProvider = ({ children }) => {
     }
     axios.defaults.baseURL = `http://${host}:5000`;
 
-    const token = await AsyncStorage.getItem('token');
+    const token = await getToken();
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
@@ -50,7 +93,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await getToken();
       if (!token) {
         setLoading(false);
         return;
@@ -59,7 +102,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get('/api/auth/me');
       setUser(response.data.user);
     } catch (error) {
-      await AsyncStorage.removeItem('token');
+      await removeToken();
       delete axios.defaults.headers.common['Authorization'];
     } finally {
       setLoading(false);
@@ -80,7 +123,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await axios.post('/api/auth/verify-otp', { email, code });
       const { token, user } = response.data;
-      await AsyncStorage.setItem('token', token);
+      await setToken(token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
       return { success: true };
@@ -99,7 +142,7 @@ export const AuthProvider = ({ children }) => {
 
       const { token, user } = response.data;
       
-      await AsyncStorage.setItem('token', token);
+      await setToken(token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
       
@@ -111,7 +154,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('token');
+    await removeToken();
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
   };
