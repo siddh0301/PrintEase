@@ -5,9 +5,12 @@ const router = express.Router();
 
 router.post('/request-otp', authController.requestOtp);
 router.post('/verify-otp', authController.verifyOtp);
+router.post('/reset-password', authController.resetPassword);
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/register-customer', authController.registerCustomer);
+router.post('/register-shopowner', authController.registerShopOwner);
+router.post('/login-customer', authController.loginCustomer);
+router.post('/login-shopowner', authController.loginShopOwner);
 
 router.get('/me', authController.getMe);
 

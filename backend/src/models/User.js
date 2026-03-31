@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: false
   },
   phone: {
     type: String,
@@ -22,14 +22,6 @@ const userSchema = new mongoose.Schema({
   emailVerified: {
     type: Boolean,
     default: false
-  },
-  otpCode: {
-    type: String,
-    default: null
-  },
-  otpExpiresAt: {
-    type: Date,
-    default: null
   },
   role: {
     type: String,

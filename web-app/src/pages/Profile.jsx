@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, Save } from 'lucide-react';
+import { User, Mail, Phone, Save, CheckCircle, XCircle, Shield } from 'lucide-react';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors }, setValue } = useForm();
 
@@ -15,20 +17,17 @@ const Profile = () => {
       setValue('name', user.name);
       setValue('email', user.email);
       setValue('phone', user.phone);
+      setValue('emailVerified', user.emailVerified);
     }
   }, [user, setValue]);
 
   const onSubmit = async (data) => {
     setLoading(true);
-    try {
-      // Here you would typically update the user profile
-      // For now, we'll just show a success message
-      toast.success('Profile updated successfully!');
-    } catch (error) {
-      toast.error('Failed to update profile');
-    } finally {
+    const result = await updateProfile(data);
+    if (!result.success) {
       setLoading(false);
     }
+    setLoading(false);
   };
 
   return (
@@ -68,12 +67,12 @@ const Profile = () => {
             <label className="block text-sm font-medium text-gray-700">
               Email Address
             </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
+            <div className="mt-1 relative rounded-md shadow-sm mt-2">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Mail className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                {...register('email', { 
+                {...register('email', {
                   required: 'Email is required',
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
@@ -81,9 +80,34 @@ const Profile = () => {
                   }
                 })}
                 type="email"
-                className="block w-full pl-10 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                className="w-full pl-10 pr-20 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                 placeholder="Enter your email"
               />
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center mb-4">
+                {user?.emailVerified ? (
+                  <div className="mt-1">
+                    <p className="mt-1 text-sm text-green-600 flex items-center">
+                      <CheckCircle className="h-5 w-5 text-green-500 mr-1" title="Email verified" />
+                      Email verified
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <button
+                      type='button'
+                      onClick={() => navigate('/verify-email', { state: { email: user.email } })}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    >
+                      <Shield className="h-5 w-5 mr-1" />
+                      <p className='sm:text-sm'>Verify Email</p>
+                    </button>
+                    {/* <p className="text-sm text-red-600 flex items-center mb-2">
+                    <XCircle className="h-5 w-5 text-red-500" title="Email not verified" />
+                      Email not verified
+                    </p> */}
+                  </div>
+                )}
+              </div>
             </div>
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>

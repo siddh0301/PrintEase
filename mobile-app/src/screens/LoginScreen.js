@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,26 @@ import {
   ScrollView,
 } from 'react-native';
 import { Snackbar } from 'react-native-paper';
+import { useRoute } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { colors, spacing, shadows } from '../styles/theme';
 
 const LoginScreen = ({ navigation }) => {
-  const [name, setName] = useState('');
+  const route = useRoute();
+  const emailFromParams = route.params?.email;
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const { requestOtp, verifyOtp } = useAuth();
+  const [otpSent, setOtpSent] = useState(false);
+  const { requestOtp, verifyAndLogin } = useAuth();
+
+  useEffect(() => {
+    if (emailFromParams) {
+      setEmail(emailFromParams);
+    }
+  }, [emailFromParams]);
 
   const showMessage = (message) => {
     setSnackbarMessage(message);
@@ -28,33 +37,31 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleRequestOtp = async () => {
-    if (!name || !email) {
-      showMessage('Please enter your name and email');
+    if (!email) {
+      showMessage('Please enter your email');
       return;
     }
 
     setLoading(true);
-    const result = await requestOtp(email, name);
+    const result = await requestOtp(email, 'mobile_login');
     setLoading(false);
 
     if (!result.success) {
       console.log('requestOtp failed', result);
-      showMessage(result.message);}
-    // } else if (result.devOtp) {
-    //   showMessage(`Dev OTP: ${result.devOtp}`);
-    // } 
-    else {
+      showMessage(result.message);
+    } else {
+      setOtpSent(true);
       showMessage('OTP sent to your email');
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyAndLogin = async () => {
     if (!email || !code) {
       showMessage('Enter email and OTP code');
       return;
     }
     setLoading(true);
-    const result = await verifyOtp(email, code);
+    const result = await verifyAndLogin(email, code);
     setLoading(false);
     if (!result.success) {
       showMessage(result.message);
@@ -74,17 +81,6 @@ const LoginScreen = ({ navigation }) => {
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
@@ -97,47 +93,33 @@ const LoginScreen = ({ navigation }) => {
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>OTP Code</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter 6-digit code"
-              value={code}
-              onChangeText={setCode}
-              keyboardType="number-pad"
-              maxLength={6}
-            />
-          </View>
+          {otpSent && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>OTP Code</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter 6-digit code"
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+          )}
 
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled, { flex: 1 }]}
-              onPress={handleRequestOtp}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Sending...' : 'Send OTP'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled, { flex: 1, backgroundColor: '#10b981' }]}
-              onPress={handleVerifyOtp}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Verifying...' : 'Verify & Login'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={otpSent ? handleVerifyAndLogin : handleRequestOtp}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? (otpSent ? 'Verifying...' : 'Sending...') : (otpSent ? 'Verify & Login' : 'Send OTP')}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.linkButton}
-            onPress={() =>
-              showMessage(
-                'Just enter your name and email, then request OTP. Your account will be created automatically.'
-              )
-            }
+            onPress={() => navigation.navigate('Register')}
           >
             <Text style={styles.linkText}>New user? Just enter your name & email</Text>
           </TouchableOpacity>

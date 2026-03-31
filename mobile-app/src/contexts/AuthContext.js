@@ -53,6 +53,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await SecureStore.deleteItemAsync('token');
       console.log('Token removed from SecureStore');
+      return;
     } catch (error) {
       console.log('SecureStore remove failed, removing from AsyncStorage:', error.message);
     }
@@ -114,9 +115,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const requestOtp = async (email, name) => {
+  const requestOtp = async (email, purpose) => {
     try {
-      const response = await axios.post('/api/auth/request-otp', { email, name });
+      const response = await axios.post('/api/auth/request-otp', { email, purpose });
       return { success: true, devOtp: response.data.devOtp };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to send OTP';
@@ -124,33 +125,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyOtp = async (email, code) => {
+  const verifyAndLogin = async (email, code) => {
     try {
-      const response = await axios.post('/api/auth/verify-otp', { email, code });
+      const response = await axios.post('/api/auth/login-customer', { email, otp: code });
+      console.log(response.message);
       const { token, user } = response.data;
       await setToken(token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Invalid code';
+      const message = error.response?.data?.message;
       return { success: false, message };
     }
   };
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/api/auth/register', {
-        ...userData,
-        role: 'customer'
-      });
-
-      const { token, user } = response.data;
-      
-      await setToken(token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
-      
+      const response = await axios.post('/api/auth/register-customer', userData);
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';
@@ -168,7 +160,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     requestOtp,
-    verifyOtp,
+    verifyAndLogin,
     register,
     logout,
     checkAuth

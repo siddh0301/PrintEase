@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff, Store } from 'lucide-react';
 
@@ -12,6 +12,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
@@ -23,10 +24,15 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     const result = await login(formData.email, formData.password);
-    
-    if (!result.success) {
+
+
+    if (result.success) {
+      if (!result.user.emailVerified) {
+        navigate('/verify-email', { state: { email: formData.email } });
+      }
+    } else {
       setLoading(false);
     }
   };
@@ -95,6 +101,14 @@ const Login = () => {
                   <Eye className="h-5 w-5 text-gray-400" />
                 )}
               </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center">
+            <div className="text-sm">
+              <Link to="/reset-password" className="font-medium text-primary-600 hover:text-primary-500">
+                Forgot your password?
+              </Link>
             </div>
           </div>
 

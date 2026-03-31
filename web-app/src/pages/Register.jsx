@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff, Store } from 'lucide-react';
 
@@ -15,6 +15,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
@@ -46,7 +47,9 @@ const Register = () => {
       password: formData.password
     });
     
-    if (!result.success) {
+    if (result.success) {
+      navigate('/verify-email', { state: { email: formData.email } });
+    } else {
       setLoading(false);
     }
   };

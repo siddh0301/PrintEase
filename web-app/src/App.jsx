@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import ShopSetup from './pages/ShopSetup';
 import Services from './pages/Services';
@@ -14,7 +16,7 @@ import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -22,28 +24,36 @@ function ProtectedRoute({ children }) {
       </div>
     );
   }
-  
+
   return user ? children : <Navigate to="/login" />;
 }
 
 function AppRoutes() {
   const { user } = useAuth();
-  
+
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={user ? <Navigate to="/dashboard" /> : <Login />} 
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/dashboard" /> : <Login />}
       />
-      <Route 
-        path="/register" 
-        element={user ? <Navigate to="/dashboard" /> : <Register />} 
+      <Route
+        path="/register"
+        element={user ? <Navigate to="/dashboard" /> : <Register />}
       />
-      <Route 
-        path="/" 
-        element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
+      <Route
+        path="/verify-email"
+        element={<VerifyEmail />}
       />
-      
+      <Route
+        path="/reset-password"
+        element={user ? <Navigate to="/dashboard" /> : <ResetPassword />}
+      />
+      <Route
+        path="/"
+        element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />}
+      />
+
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <Layout>
@@ -51,7 +61,7 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      
+
       <Route path="/shop-setup" element={
         <ProtectedRoute>
           <Layout>
@@ -59,7 +69,7 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      
+
       <Route path="/services" element={
         <ProtectedRoute>
           <Layout>
@@ -67,7 +77,7 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      
+
       <Route path="/orders" element={
         <ProtectedRoute>
           <Layout>
@@ -75,7 +85,7 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      
+
       <Route path="/profile" element={
         <ProtectedRoute>
           <Layout>
@@ -101,7 +111,7 @@ function App() {
       <Router>
         <div className="App">
           <AppRoutes />
-          <Toaster 
+          <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,

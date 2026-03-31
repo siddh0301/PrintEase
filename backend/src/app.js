@@ -4,6 +4,7 @@ import path from 'path';
 import apiLogger from './middlewares/logger.middleware.js';
 
 import authRoutes from './routes/auth.routes.js';
+import usersRoutes from './routes/users.routes.js';
 import shopsRoutes from './routes/shops.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import ratingsRoutes from './routes/ratings.routes.js';
@@ -59,6 +60,7 @@ app.get('/api', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/shops', shopsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/ratings', ratingsRoutes);

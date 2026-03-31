@@ -50,7 +50,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/auth/login', {
+      console.log(password);
+      const response = await axios.post('/auth/login-shopowner', {
         email,
         password
       });
@@ -62,7 +63,7 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       
       toast.success('Login successful!');
-      return { success: true };
+      return { success: true, user };
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
@@ -72,7 +73,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/auth/register', {
+      const response = await axios.post('/auth/register-shopowner', {
         ...userData,
         role: 'shop_owner'
       });
@@ -92,6 +93,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    try {
+      const response = await axios.put('/users/update-profile', profileData);
+
+      const { token, user } = response.data;
+      
+      Cookies.set('token', token, { expires: 7 });
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
+      
+      toast.success('Profile updated successfully!');
+      return { success: true };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Update failed';
+      toast.error(message);
+      return { success: false, message };
+    }
+  };
+
   const logout = () => {
     Cookies.remove('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -104,6 +124,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     register,
+    updateProfile,
     logout,
     checkAuth
   };
