@@ -12,6 +12,7 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [resendTimer, setResendTimer] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +27,16 @@ const ResetPassword = () => {
     return () => clearTimeout(timer);
   }, [countdown, step, navigate]);
 
+  useEffect(() => {
+    let timer;
+    if (resendTimer > 0) {
+      timer = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendTimer]);
+
   const handleRequestOtp = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -36,6 +47,7 @@ const ResetPassword = () => {
       });
       toast.success('OTP sent to your email');
       setStep(2);
+      setResendTimer(120);
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to send OTP';
       toast.error(message);
@@ -172,13 +184,22 @@ const ResetPassword = () => {
               </button>
             </div>
             <div className="text-center mt-4">
-               <button
+              {resendTimer > 0 ? (
+                <p className="text-sm text-gray-500">
+                  Resend OTP in {Math.floor(resendTimer / 60)}:{(resendTimer % 60).toString().padStart(2, '0')}
+                </p>
+              ) : (
+                <button
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={() => {
+                    setStep(1);
+                    setOtp('');
+                  }}
                   className="text-sm font-medium text-primary-600 hover:text-primary-500"
                 >
                   Need a new OTP?
-               </button>
+                </button>
+              )}
             </div>
           </form>
         )}

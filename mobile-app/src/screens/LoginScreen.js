@@ -23,7 +23,22 @@ const LoginScreen = ({ navigation }) => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [timerCount, setTimerCount] = useState(0);
   const { requestOtp, verifyAndLogin } = useAuth();
+
+  useEffect(() => {
+    let interval = null;
+    if (timerCount > 0) {
+      interval = setInterval(() => {
+        setTimerCount(prev => prev - 1);
+      }, 1000);
+    } else if (interval) {
+      clearInterval(interval);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerCount]);
 
   useEffect(() => {
     if (emailFromParams) {
@@ -51,6 +66,7 @@ const LoginScreen = ({ navigation }) => {
       showMessage(result.message);
     } else {
       setOtpSent(true);
+      setTimerCount(120);
       showMessage('OTP sent to your email');
     }
   };
@@ -116,6 +132,20 @@ const LoginScreen = ({ navigation }) => {
               {loading ? (otpSent ? 'Verifying...' : 'Sending...') : (otpSent ? 'Verify & Login' : 'Send OTP')}
             </Text>
           </TouchableOpacity>
+
+          {otpSent && (
+            <View style={styles.resendContainer}>
+              {timerCount > 0 ? (
+                <Text style={styles.resendText}>
+                  Resend OTP in {Math.floor(timerCount / 60)}:{(timerCount % 60).toString().padStart(2, '0')}
+                </Text>
+              ) : (
+                <TouchableOpacity onPress={handleRequestOtp} disabled={loading}>
+                  <Text style={[styles.resendText, styles.resendLink]}>Resend OTP</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.linkButton}
@@ -207,6 +237,18 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '700',
+  },
+  resendContainer: {
+    marginTop: spacing.md,
+    alignItems: 'center',
+  },
+  resendText: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  resendLink: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   linkButton: {
     marginTop: spacing.lg,

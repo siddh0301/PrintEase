@@ -75,9 +75,15 @@ const OrderItemCard = ({ item, onPress }) => {
           <Text style={styles.detailLabel}>Items:</Text>
           <Text style={styles.detailValue}>{item.items?.length || 0}</Text>
         </View>
-        <View style={styles.detailRow}>
+        {/* <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount:</Text>
           <Text style={styles.detailValue}>₹{item.totalAmount}</Text>
+        </View> */}
+        <View>
+          <Text style={styles.detailValue}>₹{(Number(item.totalAmount || 0) - Number(item.discountedAmount || 0)).toFixed(2)}</Text>
+          {item.freePages > 0 && (
+            <Text style={styles.rewardText}>({item.freePages} free {item.freePages === 1 ? 'page' : 'pages'})</Text>
+          )}
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Payment:</Text>
@@ -170,6 +176,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
+  },
+  rewardText: {
+    fontSize: 12,
+    color: '#22c55e',
+    marginTop: 2,
+    fontWeight: '500',
   },
 });
 
