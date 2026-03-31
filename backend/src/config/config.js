@@ -1,6 +1,8 @@
 const config = {
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/xerox-shop',
   JWT_SECRET: process.env.JWT_SECRET || 'your_jwt_secret_key_here',
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || 'your_razorpay_key_id',
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || 'your_razorpay_key_secret',
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || 'your_stripe_secret_key_here',
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || 'your_cloudinary_cloud_name',
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || 'your_cloudinary_api_key',

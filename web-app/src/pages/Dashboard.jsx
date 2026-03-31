@@ -3,7 +3,6 @@ import axios from '../api/axiosInstance';
 import { 
   ShoppingCart, 
   Package, 
-  TrendingUp, 
   Clock,
   CheckCircle,
   XCircle,
@@ -15,8 +14,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState({
     totalOrders: 0,
     pendingOrders: 0,
-    completedOrders: 0,
-    totalRevenue: 0
+    completedOrders: 0
   });
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,15 +33,11 @@ const Dashboard = () => {
       const totalOrders = orders.length;
       const pendingOrders = orders.filter(order => order.status === 'pending').length;
       const completedOrders = orders.filter(order => order.status === 'completed').length;
-      const totalRevenue = orders
-        .filter(order => order.paymentStatus === 'g')
-        .reduce((sum, order) => sum + order.totalAmount, 0);
 
       setStats({
         totalOrders,
         pendingOrders,
-        completedOrders,
-        totalRevenue
+        completedOrders
       });
 
       // Get recent orders (last 5)
@@ -107,7 +101,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -168,25 +162,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <TrendingUp className="h-6 w-6 text-green-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Revenue
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    ₹{stats.totalRevenue.toFixed(2)}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Recent Orders */}

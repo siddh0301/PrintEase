@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 
 const OrderConfirmationScreen = ({ navigation, route }) => {
-  const { shop, files, fileOptions, notes, totalAmount, availableServices } = route.params;
+  const { shop, files, fileOptions, notes, totalAmount, availableServices, reward = { totalPages: 0, freePages: 0, discountedAmount: 0 } } = route.params;
 
   const handleConfirmOrder = async () => {
     try {
@@ -21,7 +21,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
       const items = files.map((file, index) => {
         const options = fileOptions[index] || {};
         const service = availableServices.find(s => s.id === options.serviceId);
-        const pages = Number(options.pages || 0);
+       const pages = Number(options.pages || 0);
         const quantity = Number(options.copies || 1);
         const price = Number(service?.price || 0);
         
@@ -58,6 +58,11 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
       formData.append('notes', notes);
       formData.append('totalAmount', totalAmount);
       
+      // Add loyalty reward data
+      formData.append('totalPages', reward.totalPages || 0);
+      formData.append('freePages', reward.freePages || 0);
+      formData.append('discountedAmount', reward.discountedAmount || 0);
+      
       files.forEach((file, idx) => {
         formData.append('files', {
           uri: file.uri,
@@ -78,7 +83,14 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Payment', { order: response.data.order })
+            onPress: () => navigation.navigate('Payment', { 
+              order: response.data.order,
+              reward: {
+                totalPages: reward.totalPages,
+                freePages: reward.freePages,
+                discountedAmount: reward.discountedAmount
+              }
+            })
           }
         ]
       );
@@ -125,6 +137,24 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
           <Text style={styles.totalLabel}>Total Amount:</Text>
           <Text style={styles.totalAmount}>₹{totalAmount.toFixed(2)}</Text>
         </View>
+
+        {/* Loyalty Reward Display */}
+        {reward && reward.freePages > 0 && (
+          <View style={styles.rewardSection}>
+            <View style={styles.rewardBanner}>
+              <Ionicons name="gift" size={20} color="#22c55e" />
+              <View style={styles.rewardContent}>
+                <Text style={styles.rewardText}>🎉 You're getting {reward.freePages} FREE {reward.freePages === 1 ? 'page' : 'pages'}!</Text>
+                <Text style={styles.rewardSubtext}>Discount: ₹{reward.discountedAmount.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.finalAmountRow}>
+              <Text style={styles.finalLabel}>Final Amount:</Text>
+              <Text style={styles.finalAmount}>₹{(totalAmount - reward.discountedAmount).toFixed(2)}</Text>
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.confirmSection}>
@@ -197,6 +227,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    marginBottom: 12,
   },
   totalLabel: {
     fontSize: 18,
@@ -207,6 +238,51 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#3b82f6',
+  },
+  rewardSection: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#22c55e',
+  },
+  rewardBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  rewardContent: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  rewardText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#15803d',
+  },
+  rewardSubtext: {
+    fontSize: 12,
+    color: '#4ade80',
+    marginTop: 2,
+  },
+  finalAmountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#dcfce7',
+  },
+  finalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  finalAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#22c55e',
   },
   confirmSection: {
     backgroundColor: 'white',

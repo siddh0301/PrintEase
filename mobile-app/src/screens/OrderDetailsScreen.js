@@ -19,10 +19,50 @@ const OrderDetailsScreen = ({ navigation, route }) => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasRated, setHasRated] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(null);
+
+  const hasOrderChanged = (newOrder, oldOrder) => {
+    if (!oldOrder) return true;
+    return JSON.stringify(newOrder) !== JSON.stringify(oldOrder);
+  };
 
   useEffect(() => {
     fetchOrderDetails();
+    
+    // Smart polling - check for changes before updating
+    const interval = setInterval(() => {
+      fetchOrderDetailsWithoutRebuild();
+    }, 2000);
+    
+    setRefreshInterval(interval);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
+
+  useEffect(() => {
+    if (order && (order.status === 'completed' || order.status === 'cancelled')) {
+      // Stop refreshing when order is completed or cancelled
+      if (refreshInterval) clearInterval(refreshInterval);
+    }
+  }, [order?.status, refreshInterval]);
+
+  const fetchOrderDetailsWithoutRebuild = async () => {
+    try {
+      const response = await axios.get(`/api/orders/${orderId}`);
+      const newOrder = response.data;
+      
+      // Only update if data changed
+      if (hasOrderChanged(newOrder, order)) {
+        setOrder(newOrder);
+        console.log('✅ Order updated:', newOrder.status);
+      }
+    } catch (error) {
+      // Silent fail - don't interrupt user
+      console.log('Poll update failed:', error.message);
+    }
+  };
 
   useEffect(() => {
     if (order && order.status === 'completed') {
@@ -247,7 +287,15 @@ const OrderDetailsScreen = ({ navigation, route }) => {
           {/* Total Amount */}
           <View style={styles.totalContainer}>
             <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalAmount}>₹{order.totalAmount?.toFixed(2)}</Text>
+            <View>
+              <Text style={styles.totalAmount}>₹{order.totalAmount?.toFixed(2)}</Text>
+              {order.freePages > 0 && (
+                <>
+                  <Text style={[styles.totalAmount, { fontSize: 12, color: '#ef4444', marginTop: 4 }]}>- Discount: ₹{(order.discountedAmount || 0).toFixed(2)}</Text>
+                  <Text style={[styles.totalAmount, { fontSize: 14, color: '#22c55e', marginTop: 4, fontWeight: '700' }]}>= ₹{((order.totalAmount || 0) - (order.discountedAmount || 0)).toFixed(2)}</Text>
+                </>
+              )}
+            </View>
           </View>
         </View>
 
@@ -327,8 +375,14 @@ const OrderDetailsScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Total Payment:</Text>
-              <Text style={styles.paymentValue}>₹{order.totalAmount?.toFixed(2)}</Text>
+              <Text style={styles.paymentValue}>₹{((order.totalAmount || 0) - (order.discountedAmount || 0)).toFixed(2)}</Text>
             </View>
+            {order.freePages > 0 && (
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>({order.freePages} free {order.freePages === 1 ? 'page' : 'pages'})</Text>
+                <Text style={[styles.paymentValue, { color: '#22c55e' }]}>-₹{(order.discountedAmount || 0).toFixed(2)}</Text>
+              </View>
+            )}
             {order.paymentId && (
               <View style={styles.paymentRow}>
                 <Text style={styles.paymentLabel}>Transaction ID:</Text>
@@ -422,7 +476,7 @@ const OrderDetailsScreen = ({ navigation, route }) => {
               <Text style={styles.viewRatingButtonText}>View Rating</Text>
             </TouchableOpacity>
           )}
-          {order.status !== 'completed' && order.status !== 'cancelled' && (
+          {order.status === 'pending' && (
             <TouchableOpacity
               style={[styles.actionButton, styles.cancelButton]}
               onPress={handleCancelOrder}

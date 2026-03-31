@@ -40,11 +40,16 @@ export const AuthProvider = ({ children }) => {
     if (Platform.OS === 'android' && host === 'localhost') {
       host = '10.0.2.2'; // Android emulator loopback to host
     }
-    axios.defaults.baseURL = `http://${host}:5000`;
+    
+    const baseURL = `http://${host}:5000`;
+    console.log('🌐 Setting axios baseURL:', baseURL);
+    
+    axios.defaults.baseURL = baseURL;
 
     const token = await AsyncStorage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Authorization token set');
     }
   };
 

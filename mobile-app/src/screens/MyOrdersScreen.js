@@ -17,9 +17,41 @@ const MyOrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(null);
+
+  const hasOrdersChanged = (newOrders, oldOrders) => {
+    if (newOrders.length !== oldOrders.length) return true;
+    return JSON.stringify(newOrders) !== JSON.stringify(oldOrders);
+  };
+
+  const fetchOrdersWithoutRebuild = async () => {
+    try {
+      const response = await axios.get('/api/orders/customer/my-orders');
+      const newOrders = response.data;
+      
+      // Only update if data changed
+      if (hasOrdersChanged(newOrders, orders)) {
+        setOrders(newOrders);
+        console.log('✅ Orders updated');
+      }
+    } catch (error) {
+      console.log('Poll update failed:', error.message);
+    }
+  };
 
   useEffect(() => {
     fetchOrders();
+    
+    // Smart polling - only update if data changed
+    const interval = setInterval(() => {
+      fetchOrdersWithoutRebuild();
+    }, 3000);
+    
+    setRefreshInterval(interval);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   const fetchOrders = async () => {
@@ -115,7 +147,12 @@ const MyOrdersScreen = ({ navigation }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount:</Text>
-          <Text style={styles.detailValue}>₹{item.totalAmount}</Text>
+          <View>
+            <Text style={styles.detailValue}>₹{(Number(item.totalAmount || 0) - Number(item.discountedAmount || 0)).toFixed(2)}</Text>
+            {item.freePages > 0 && (
+              <Text style={styles.rewardText}>({item.freePages} free {item.freePages === 1 ? 'page' : 'pages'})</Text>
+            )}
+          </View>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Payment:</Text>
@@ -267,6 +304,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  rewardText: {
+    fontSize: 12,
+    color: '#22c55e',
+    marginTop: 2,
+    fontWeight: '500',
   },
   statusBar: {
     flexDirection: 'row',

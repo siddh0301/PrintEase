@@ -82,6 +82,14 @@ const shopSchema = new mongoose.Schema({
   isTemporaryClosed: {
     type: Boolean,
     default: false
+  },
+  totalRevenue: {
+    type: Number,
+    default: 0
+  },
+  totalOrders: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

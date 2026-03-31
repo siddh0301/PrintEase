@@ -117,6 +117,32 @@ A complete web and mobile application system for Xerox shop management with cust
    npm run ios      # For iOS
    ```
 
+## 🧪 Testing with Demo Mode
+
+Before setting up real Razorpay credentials, use **Demo Mode** to test the complete payment flow:
+
+- 🚀 No real Razorpay account needed
+- ✅ Test payment → earning → settlement flow
+- 💾 Creates real database records for testing
+
+**[See DEMO_MODE_TESTING.md](DEMO_MODE_TESTING.md) for detailed testing guide**
+
+Quick Start:
+```bash
+# 1. Start backend
+cd backend && npm start
+
+# 2. Start mobile app
+cd ../mobile-app && npm start
+
+# 3. Login, create order, click "Pay Now"
+# 4. Demo payment succeeds automatically
+# 5. Earnings appear for shop
+# 6. Test settlement flow
+```
+
+Once confident, [switch to real Razorpay](DEMO_MODE_TESTING.md#switching-to-real-razorpay).
+
 ## API Endpoints
 
 ### Authentication

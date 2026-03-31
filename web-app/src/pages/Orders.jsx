@@ -14,9 +14,41 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState(null);
+  const [refreshInterval, setRefreshInterval] = useState(null);
+
+  const hasOrdersChanged = (newOrders, oldOrders) => {
+    if (newOrders.length !== oldOrders.length) return true;
+    return JSON.stringify(newOrders) !== JSON.stringify(oldOrders);
+  };
+
+  const fetchOrdersWithoutRebuild = async () => {
+    try {
+      const response = await axios.get('/orders/shop/my-orders');
+      const newOrders = response.data;
+      
+      // Only update if data changed
+      if (hasOrdersChanged(newOrders, orders)) {
+        setOrders(newOrders);
+        console.log('✅ Orders updated');
+      }
+    } catch (error) {
+      console.log('Poll update failed:', error.message);
+    }
+  };
 
   useEffect(() => {
     fetchOrders();
+    
+    // Smart polling - only update if data changed
+    const interval = setInterval(() => {
+      fetchOrdersWithoutRebuild();
+    }, 3000);
+    
+    setRefreshInterval(interval);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   const fetchOrders = async () => {
@@ -273,7 +305,12 @@ const handlePrint = async (file) => {
                         {order.items?.length || 0} items
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ₹{order.totalAmount}
+                        <div>
+                          <div className="font-semibold text-gray-900">₹{(Number(order.totalAmount || 0) - Number(order.discountedAmount || 0)).toFixed(2)}</div>
+                          {order.freePages > 0 && (
+                            <div className="text-xs text-green-600">({order.freePages} free {order.freePages === 1 ? 'page' : 'pages'})</div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
@@ -407,12 +444,41 @@ const handlePrint = async (file) => {
                                       })}
                                       <tr className="bg-blue-50 font-semibold">
                                         <td colSpan={5} className="px-3 py-3 text-right text-gray-900">
-                                          Total Amount:
+                                          Original Total:
                                         </td>
                                         <td className="px-3 py-3 text-right text-lg text-blue-600">
                                           ₹{Number(order.totalAmount || 0).toFixed(2)}
                                         </td>
                                       </tr>
+
+                                      {/* Loyalty Reward Row */}
+                                      {order.freePages > 0 && (
+                                        <>
+                                          <tr className="bg-gradient-to-r from-green-50 to-emerald-50">
+                                            <td colSpan={6} className="px-3 py-3">
+                                              <div className="border-l-4 border-green-600 pl-4">
+                                                <div className="grid grid-cols-3 gap-8">
+                                                  <div>
+                                                    <p className="text-xs text-gray-600 font-semibold uppercase">Free Pages</p>
+                                                    <p className="text-lg font-bold text-green-700 mt-1">🎉 {order.freePages} {order.freePages === 1 ? 'page' : 'pages'}</p>
+                                                    <p className="text-xs text-green-600 mt-1">for ordering {order.totalPages} pages</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-xs text-gray-600 font-semibold uppercase">Discount Amount</p>
+                                                    <p className="text-lg font-bold text-red-600 mt-1">-₹{Number(order.discountedAmount || 0).toFixed(2)}</p>
+                                                    <p className="text-xs text-red-600 mt-1">Customer saved</p>
+                                                  </div>
+                                                  <div className="text-right">
+                                                    <p className="text-xs text-gray-600 font-semibold uppercase">Amount Customer Paid</p>
+                                                    <p className="text-lg font-bold text-emerald-700 mt-1">₹{(Number(order.totalAmount || 0) - Number(order.discountedAmount || 0)).toFixed(2)}</p>
+                                                    <p className="text-xs text-emerald-600 mt-1">After discount</p>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        </>
+                                      )}
                                     </tbody>
                                   </table>
                                 </div>

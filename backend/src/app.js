@@ -2,11 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import apiLogger from './middlewares/logger.middleware.js';
+
 import authRoutes from './routes/auth.routes.js';
 import shopsRoutes from './routes/shops.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import ratingsRoutes from './routes/ratings.routes.js';
-import paymentsRoutes from './routes/payments.js';
+import razorpayRoutes from './routes/razorpay.routes.js';
+import settlementRoutes from './routes/settlement.routes.js';
 import notificationsRoutes from './routes/notifications.js';
 
 
@@ -48,7 +50,8 @@ app.get('/api', (req, res) => {
       '/api/shops',
       '/api/orders',
       '/api/ratings',
-      '/api/payments',
+      '/api/razorpay',
+      '/api/settlements',
       '/api/notifications',
     ],
   });
@@ -59,7 +62,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/ratings', ratingsRoutes);
-app.use('/api/payments', paymentsRoutes);
+app.use('/api/razorpay', razorpayRoutes);
+app.use('/api/settlements', settlementRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
 // Serve static files

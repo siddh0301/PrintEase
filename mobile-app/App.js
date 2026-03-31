@@ -21,6 +21,7 @@ import OrderDetailsScreen from './src/screens/OrderDetailsScreen';
 import RatingScreen from './src/screens/RatingScreen';
 import RateShopScreen from './src/screens/RateShopScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
+import OrderPaymentSuccessScreen from './src/screens/OrderPaymentSuccessScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
 // Context
@@ -95,6 +96,7 @@ function AppNavigator() {
             <Stack.Screen name="Rating" component={RatingScreen} />
             <Stack.Screen name="RateShop" component={RateShopScreen} />
             <Stack.Screen name="Payment" component={PaymentScreen} />
+            <Stack.Screen name="OrderPaymentSuccess" component={OrderPaymentSuccessScreen} />
           </>
         ) : (
           <>
