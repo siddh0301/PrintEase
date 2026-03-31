@@ -132,6 +132,7 @@ export default function ShopSetup() {
       if (shops.length > 0) {
         const shop = shops[0];
         setShopId(shop._id);
+        localStorage.setItem('selectedShopId', shop._id); // Save to localStorage
 
         // Load existing shop image
         if (shop.image) {

@@ -177,6 +177,38 @@ const OrderScreen = ({ navigation, route }) => {
     return total;
   };
 
+  const calculateLoyaltyReward = () => {
+    // Calculate total pages from per-page items only
+    let totalPages = 0;
+    let perPageServices = [];
+
+    files.forEach((file, index) => {
+      const options = fileOptions[index] || {};
+      const service = availableServices.find(s => s.id === options.serviceId);
+      const copies = Number(options.copies || 1);
+      const pages = Number(options.pages || 0);
+
+      if (service && service.unit === 'per page' && pages > 0 && copies > 0) {
+        totalPages += pages * copies;
+        perPageServices.push(service.price);
+      }
+    });
+
+    const freePages = Math.floor(totalPages / 10);
+    let discountedAmount = 0;
+
+    if (freePages > 0 && perPageServices.length > 0) {
+      const avgPricePerPage = perPageServices.reduce((a, b) => a + b, 0) / perPageServices.length;
+      discountedAmount = freePages * avgPricePerPage;
+    }
+
+    return {
+      totalPages,
+      freePages,
+      discountedAmount,
+    };
+  };
+
   const handlePlaceOrder = async () => {
     if (files.length === 0) {
       Alert.alert('Error', 'Please upload at least one document');
@@ -196,6 +228,7 @@ const OrderScreen = ({ navigation, route }) => {
     }
 
     const totalAmount = calculateTotal();
+    const reward = calculateLoyaltyReward();
 
     navigation.navigate('OrderConfirmation', {
       shop,
@@ -204,6 +237,11 @@ const OrderScreen = ({ navigation, route }) => {
       notes,
       totalAmount,
       availableServices,
+      reward: {
+        totalPages: reward.totalPages,
+        freePages: reward.freePages,
+        discountedAmount: reward.discountedAmount,
+      },
     });
   };
 
@@ -418,12 +456,60 @@ const OrderScreen = ({ navigation, route }) => {
         />
       </View>
 
-      {/* SECTION 5: TOTAL & ORDER */}
+      {/* SECTION 5: TOTAL & LOYALTY REWARD */}
       <View style={styles.totalSection}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total Amount:</Text>
           <Text style={styles.totalAmount}>₹{calculateTotal().toFixed(2)}</Text>
         </View>
+
+        {/* Loyalty Reward Display */}
+        {(() => {
+          const reward = calculateLoyaltyReward();
+          if (reward.freePages > 0) {
+            return (
+              <View style={styles.rewardBanner}>
+                <View style={styles.rewardIconBox}>
+                  <Ionicons name="gift" size={24} color="#22c55e" />
+                </View>
+                <View style={styles.rewardContent}>
+                  <Text style={styles.rewardTitle}>🎉 You're getting {reward.freePages} FREE {reward.freePages === 1 ? 'page' : 'pages'}!</Text>
+                  <Text style={styles.rewardSubtitle}>Earn 1 free page for every 10 pages ordered</Text>
+                  <View style={styles.rewardBreakdown}>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Total Pages:</Text>
+                      <Text style={styles.breakdownValue}>{reward.totalPages}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Free Pages:</Text>
+                      <Text style={styles.breakdownValue}>-{reward.freePages}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>You Save:</Text>
+                      <Text style={styles.savingsAmount}>₹{reward.discountedAmount.toFixed(2)}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Final Amount After Discount */}
+        {(() => {
+          const reward = calculateLoyaltyReward();
+          if (reward.freePages > 0) {
+            const finalAmount = calculateTotal() - reward.discountedAmount;
+            return (
+              <View style={styles.finalAmountRow}>
+                <Text style={styles.finalAmountLabel}>Final Amount:</Text>
+                <Text style={styles.finalAmount}>₹{finalAmount.toFixed(2)}</Text>
+              </View>
+            );
+          }
+          return null;
+        })()}
       </View>
 
       <View style={styles.footer}>
@@ -753,6 +839,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
   totalLabel: {
     fontSize: 18,
@@ -763,6 +850,80 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#3b82f6',
+  },
+  rewardBanner: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#22c55e',
+    flexDirection: 'row',
+  },
+  rewardIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#dcfce7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  rewardContent: {
+    flex: 1,
+  },
+  rewardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#15803d',
+    marginBottom: 4,
+  },
+  rewardSubtitle: {
+    fontSize: 12,
+    color: '#4ade80',
+    marginBottom: 8,
+  },
+  rewardBreakdown: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 8,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  breakdownLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  breakdownValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  savingsAmount: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#22c55e',
+  },
+  finalAmountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  finalAmountLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  finalAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#22c55e',
   },
   footer: {
     padding: 16,

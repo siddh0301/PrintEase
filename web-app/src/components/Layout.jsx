@@ -10,7 +10,8 @@ import {
   Menu,
   X,
   LogOut,
-  Bell
+  Bell,
+  DollarSign
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -24,6 +25,7 @@ const Layout = ({ children }) => {
     { name: 'Shop Setup', href: '/shop-setup', icon: Store },
     { name: 'Services', href: '/services', icon: Package },
     { name: 'Orders', href: '/orders', icon: ShoppingCart },
+    { name: 'Earnings', href: '/earnings', icon: DollarSign },
     { name: 'Profile', href: '/profile', icon: User },
   ];
 

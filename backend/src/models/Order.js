@@ -61,6 +61,18 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  totalPages: {
+    type: Number,
+    default: 0
+  },
+  freePages: {
+    type: Number,
+    default: 0
+  },
+  discountedAmount: {
+    type: Number,
+    default: 0
+  },
   status: {
     type: String,
     enum: ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'],
@@ -72,6 +84,14 @@ const orderSchema = new mongoose.Schema({
     default: 'pending'
   },
   paymentId: String,
+  razorpayOrderId: String,
+  razorpayPaymentId: String,
+  razorpaySignature: String,
+  earning: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Earning',
+    default: null
+  },
   deliveryAddress: {
     street: String,
     city: String,

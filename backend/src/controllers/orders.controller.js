@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Shop from '../models/Shop.js';
 import Notification from '../models/Notification.js';
+import Earning from '../models/Earning.js';
 import fs from 'fs';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import pkg from 'pdf-to-printer';
@@ -74,25 +75,52 @@ export const createOrder = async (req, res) => {
     const {
       shopId,
       items,
-
       notes,
       deliveryAddress,
-      totalAmount
+      totalAmount,
+      // Optional: loyalty reward values (if provided from mobile app)
+      totalPages: requestTotalPages,
+      freePages: requestFreePages,
+      discountedAmount: requestDiscountedAmount
     } = req.body;
 
     const shop = await Shop.findById(shopId);
     if (!shop) {
       return res.status(404).json({ message: 'Shop not found' });
     }
-const parsedItems = JSON.parse(items);
 
-const itemsWithTotal = parsedItems.map(item => ({
-  ...item,
-  pages: item.pages || (item.isImage ? 1 : 0), // set 1 for images, or use detected pages
-  totalPrice: item.unit === 'per page'
-    ? Number(item.price) * Number(item.quantity) * Number(item.pages || (item.isImage ? 1 : 0))
-    : Number(item.price) * Number(item.quantity)
-}));
+    const parsedItems = JSON.parse(items);
+
+    const itemsWithTotal = parsedItems.map(item => ({
+      ...item,
+      pages: item.pages || (item.isImage ? 1 : 0), // set 1 for images, or use detected pages
+      totalPrice: item.unit === 'per page'
+        ? Number(item.price) * Number(item.quantity) * Number(item.pages || (item.isImage ? 1 : 0))
+        : Number(item.price) * Number(item.quantity)
+    }));
+
+    // Calculate total pages and free pages reward
+    let totalPages = requestTotalPages ? Number(requestTotalPages) : itemsWithTotal.reduce((sum, item) => {
+      if (item.unit === 'per page') {
+        return sum + (Number(item.pages || 0) * Number(item.quantity || 0));
+      }
+      return sum;
+    }, 0);
+
+    let freePages = requestFreePages ? Number(requestFreePages) : Math.floor(totalPages / 10);
+    
+    // Calculate discounted amount (free pages * average price per page)
+    let discountedAmount = requestDiscountedAmount 
+      ? Number(requestDiscountedAmount) 
+      : 0;
+    
+    if (freePages > 0 && !requestDiscountedAmount) {
+      const itemsWithPagePrice = itemsWithTotal.filter(item => item.unit === 'per page');
+      const avgPricePerPage = itemsWithPagePrice.length > 0
+        ? itemsWithPagePrice.reduce((sum, item) => sum + item.price, 0) / itemsWithPagePrice.length
+        : 0;
+      discountedAmount = freePages * avgPricePerPage;
+    }
     // const order = new Order({
     //   customer: req.user._id,
     //   shop: shopId,
@@ -141,6 +169,9 @@ const itemsWithTotal = parsedItems.map(item => ({
         : undefined,
       notes,
       totalAmount: Number(totalAmount),
+      totalPages,
+      freePages,
+      discountedAmount,
       status: 'pending'
     });
 

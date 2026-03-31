@@ -9,6 +9,7 @@ import ShopSetup from './pages/ShopSetup';
 import Services from './pages/Services';
 import Orders from './pages/Orders';
 import Profile from './pages/Profile';
+import EarningsDashboard from './pages/EarningsDashboard';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -79,6 +80,14 @@ function AppRoutes() {
         <ProtectedRoute>
           <Layout>
             <Profile />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/earnings" element={
+        <ProtectedRoute>
+          <Layout>
+            <EarningsDashboard />
           </Layout>
         </ProtectedRoute>
       } />
