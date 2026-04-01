@@ -1,30 +1,25 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import cloudinary from './cloudinary.js';
 
-// Ensure uploads/shops directory exists
-const shopsDir = 'uploads/shops';
-if (!fs.existsSync(shopsDir)) {
-  fs.mkdirSync(shopsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, shopsDir);
-  },
-  filename: (req, file, cb) => {
-    // Sanitize filename
-    const originalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const timestamp = Date.now();
-    const extension = path.extname(originalName);
-    const basename = path.basename(originalName, extension);
-    cb(null, `${timestamp}-${basename}${extension}`);
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'printease/shops',
+    resource_type: 'image',
+    public_id: (req, file) => {
+      // Sanitize filename
+      const originalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const timestamp = Date.now();
+      const basename = originalName.split('.')[0];
+      return `${timestamp}-${basename}`;
+    }
   }
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);

@@ -5,12 +5,7 @@ const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
-    console.log('🔐 Auth middleware check:');
-    console.log('   - Endpoint:', req.path);
-    console.log('   - Token present:', !!token);
-    
     if (!token) {
-      console.log('   ❌ No token found');
       return res.status(401).json({ message: 'No token, authorization denied' });
     }
 
@@ -18,15 +13,12 @@ const auth = async (req, res, next) => {
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {
-      console.log('   ❌ User not found from token');
       return res.status(401).json({ message: 'Token is not valid' });
     }
 
-    console.log('   ✅ Auth successful for user:', user._id);
     req.user = user;
     next();
   } catch (error) {
-    console.log('   ❌ Token error:', error.message);
     res.status(401).json({ message: 'Token is not valid' });
   }
 };
