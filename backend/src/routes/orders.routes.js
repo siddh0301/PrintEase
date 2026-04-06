@@ -1,12 +1,19 @@
 import express from 'express';
 import { auth, shopOwnerAuth } from '../middlewares/auth.middleware.js';
 import withUpload from '../middlewares/upload.middleware.js';
+import withMemoryUpload from '../middlewares/upload.memory.middleware.js';
 import * as controller from '../controllers/orders.controller.js';
 
 const router = express.Router();
 
-// Inspect uploaded files (customer)
-router.post('/inspect', auth, withUpload, controller.inspectFiles);
+// Debug: Test Cloudinary upload
+router.post('/test/cloudinary', withMemoryUpload, controller.testCloudinaryUpload);
+
+// Inspect uploaded files (customer) - uses MEMORY storage for speed
+router.post('/inspect', auth, withMemoryUpload, controller.inspectFiles);
+
+// Debug: Test page count extraction without upload
+router.post('/debug/page-count', withMemoryUpload, controller.debugPageCount);
 
 // Create order (customer)
 router.post('/', auth, withUpload, controller.createOrder);

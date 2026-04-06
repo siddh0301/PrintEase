@@ -8,21 +8,79 @@ const shopSchema = new mongoose.Schema({
   },
   ownerName: {
     type: String,
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        // Only allow letters, numbers, spaces, hyphens, apostrophes
+        return /^[a-zA-Z0-9\s\-']{3,100}$/.test(v);
+      },
+      message: 'Owner name must contain only letters, numbers, spaces, hyphens, or apostrophes (3-100 characters). No HTML tags allowed.'
+    }
   },
   shopName: {
     type: String,
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        // Only allow letters, numbers, spaces, hyphens, apostrophes, commas, periods
+        return /^[a-zA-Z0-9\s\-',.&]{3,100}$/.test(v);
+      },
+      message: 'Shop name must contain only letters, numbers, spaces, hyphens, apostrophes, commas, periods, or ampersands (3-100 characters). No HTML tags allowed.'
+    }
   },
   description: {
-    type: String
+    type: String,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Optional field
+        // Check for HTML tags or script content
+        return !/<[^>]*>/.test(v) && !/javascript:|onerror|onload|onclick/i.test(v);
+      },
+      message: 'Description cannot contain HTML tags or JavaScript.'
+    }
   },
   address: {
-    shopNumber: String,
-    street: String,
-    city: String,
+    shopNumber: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Optional
+          return /^[a-zA-Z0-9\s,.\-#/]{1,50}$/.test(v);
+        },
+        message: 'Invalid shop number format.'
+      }
+    },
+    street: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Optional
+          return /^[a-zA-Z0-9\s,.\-#/]{3,100}$/.test(v);
+        },
+        message: 'Invalid street address format.'
+      }
+    },
+    city: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Optional
+          return /^[a-zA-Z\s\-']{2,50}$/.test(v);
+        },
+        message: 'Invalid city name format.'
+      }
+    },
     state: String,
-    pincode: String
+    pincode: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Optional
+          return /^[0-9]{5,6}$/.test(v);
+        },
+        message: 'Pincode must be 5-6 digits.'
+      }
+    }
   },
   // GeoJSON location for map + nearby queries
   location: {

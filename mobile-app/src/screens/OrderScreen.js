@@ -10,6 +10,7 @@ import {
   Linking,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -68,6 +69,7 @@ const OrderScreen = ({ navigation, route }) => {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [detectedPages, setDetectedPages] = useState(0);
+  const [pageCountLoading, setPageCountLoading] = useState({});
 
   const updateFileOption = (fileIndex, option, value) => {
     setFileOptions(prev => ({
@@ -79,27 +81,67 @@ const OrderScreen = ({ navigation, route }) => {
     }));
   };
 
-  const refreshDetectedPages = async (filesList) => {
+  const refreshDetectedPages = async (filesList, startIndex = 0) => {
     let total = 0;
-    for (let i = 0; i < filesList.length; i++) {
-      try {
-        const form = new FormData();
-        form.append('files', {
-          uri: filesList[i].uri,
-          type: filesList[i].mimeType || 'application/pdf',
-          name: filesList[i].name || `document_${i + 1}.pdf`,
-        });
-        const resp = await axios.post('/api/orders/inspect', form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const pages = Number(resp?.data?.totalPdfPages) || 0;
-        updateFileOption(i, 'pages', pages);
-        total += pages;
-      } catch (_) {
-        updateFileOption(i, 'pages', 0);
+    // Only process files from startIndex onwards (newly added files)
+    for (let i = startIndex; i < filesList.length; i++) {
+      let retries = 0;
+      const maxRetries = 3;
+      let pageCount = 0;
+      let success = false;
+
+      while (retries < maxRetries && !success) {
+        try {
+          // Show loading indicator for this file
+          setPageCountLoading(prev => ({ ...prev, [i]: true }));
+
+          const form = new FormData();
+          form.append('files', {
+            uri: filesList[i].uri,
+            type: filesList[i].mimeType || 'application/pdf',
+            name: filesList[i].name || `document_${i + 1}.pdf`,
+          });
+
+          const resp = await axios.post('/api/orders/inspect', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 30000, // 30 second timeout
+          });
+
+          pageCount = Number(resp?.data?.totalPdfPages) || 0;
+
+          // ✅ Success - only if pages is a valid number (not null/undefined)
+          if (Number.isFinite(pageCount) && pageCount >= 0) {
+            updateFileOption(i, 'pages', pageCount);
+            total += pageCount;
+            success = true;
+            console.log(`✅ File ${i}: ${pageCount} pages extracted`);
+          } else {
+            // Page count is invalid/null - need to retry
+            console.warn(`⚠️ Invalid page count: ${pageCount}`);
+            throw new Error(`Invalid page count: ${pageCount}`);
+          }
+
+          // Hide loading indicator
+          setPageCountLoading(prev => ({ ...prev, [i]: false }));
+        } catch (error) {
+          retries++;
+          console.warn(`⚠️ File ${i} attempt ${retries}/${maxRetries} failed: ${error.message}`);
+
+          if (retries < maxRetries) {
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 500 * retries));
+          } else {
+            // Final attempt failed
+            console.error(`❌ File ${i} failed after ${maxRetries} retries`);
+            updateFileOption(i, 'pages', 0);
+            setPageCountLoading(prev => ({ ...prev, [i]: false }));
+            // Still add 0 to total so we continue
+          }
+        }
       }
     }
-    setDetectedPages(total);
+    // Add to existing detected pages, not replace
+    setDetectedPages(prev => prev + total);
   };
 
   const pickDocument = async () => {
@@ -111,32 +153,100 @@ const OrderScreen = ({ navigation, route }) => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const newFiles = result.assets.filter(asset =>
-          !files.some(existing => existing.uri === asset.uri)
-        );
-        const next = [...files, ...newFiles];
+        const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+        const WARNING_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-        // default options per added file (copies + per-file service selection)
-        const nextOptions = { ...fileOptions };
-        newFiles.forEach((_, idx) => {
-          const fileIndex = files.length + idx;
-          nextOptions[fileIndex] = {
-            copies: 1,
-            serviceId: null,
-            pages: 0,
-          };
+        // Check file sizes
+        let filesExceedLimit = [];
+        let filesWarning = [];
+        let validFiles = [];
+
+        result.assets.forEach(asset => {
+          const fileSize = asset.size || 0;
+          
+          if (fileSize > MAX_FILE_SIZE) {
+            filesExceedLimit.push({
+              name: asset.name,
+              size: (fileSize / 1024 / 1024).toFixed(2)
+            });
+          } else if (fileSize > WARNING_FILE_SIZE) {
+            filesWarning.push({
+              name: asset.name,
+              size: (fileSize / 1024 / 1024).toFixed(2)
+            });
+          } else {
+            validFiles.push(asset);
+          }
         });
 
-        setFiles(next);
-        setFileOptions(nextOptions);
-        refreshDetectedPages(next);
+        // Show error if any file exceeds 15 MB
+        if (filesExceedLimit.length > 0) {
+          const filesList = filesExceedLimit.map(f => `${f.name} (${f.size} MB)`).join('\n');
+          Alert.alert(
+            '❌ File Too Large',
+            `Following files are larger than 15 MB and cannot be accepted:\n\n${filesList}\n\nPlease select files smaller than 15 MB`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Show warning if any file is between 5-15 MB
+        if (filesWarning.length > 0) {
+          const warningList = filesWarning.map(f => `${f.name} (${f.size} MB)`).join('\n');
+          Alert.alert(
+            '⚠️ Large File Warning',
+            `Following files are between 5-15 MB and may take longer to process:\n\n${warningList}\n\nDo you want to continue?`,
+            [
+              { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+              { 
+                text: 'Continue',
+                onPress: () => processValidFiles(validFiles)
+              }
+            ]
+          );
+        } else if (validFiles.length > 0) {
+          processValidFiles(validFiles);
+        } else {
+          Alert.alert('Error', 'No valid files selected');
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick documents');
     }
   };
 
+  const processValidFiles = async (newAssets) => {
+    const newFiles = newAssets.filter(asset =>
+      !files.some(existing => existing.uri === asset.uri)
+    );
+    
+    if (newFiles.length === 0) {
+      Alert.alert('Info', 'These files are already added');
+      return;
+    }
+
+    const next = [...files, ...newFiles];
+
+    // default options per added file (copies + per-file service selection)
+    const nextOptions = { ...fileOptions };
+    newFiles.forEach((_, idx) => {
+      const fileIndex = files.length + idx;
+      nextOptions[fileIndex] = {
+        copies: 1,
+        serviceId: null,
+        pages: 0,
+      };
+    });
+
+    setFiles(next);
+    setFileOptions(nextOptions);
+    // Only refresh page count for NEWLY added files, not all files
+    refreshDetectedPages(next, files.length);
+  };
+
   const removeFile = (index) => {
+    const removedFilePage = Number(fileOptions[index]?.pages || 0);
+    
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
 
@@ -148,7 +258,8 @@ const OrderScreen = ({ navigation, route }) => {
     });
     setFileOptions(nextOptions);
 
-    refreshDetectedPages(newFiles);
+    // Subtract removed file's pages from total
+    setDetectedPages(prev => Math.max(0, prev - removedFilePage));
   };
 
   // Calculate total using per-file page count, price per page, and quantity (copies)
@@ -337,9 +448,17 @@ const OrderScreen = ({ navigation, route }) => {
                         <Text style={styles.fileService}>
                           Service: {selectedService ? selectedService.name : 'Not selected'}
                         </Text>
-                        <Text style={styles.filePages}>
-                          Pages: {options.pages || 0}
-                        </Text>
+                        {/* Loading indicator for page count extraction */}
+                        {pageCountLoading[index] ? (
+                          <View style={styles.loadingPageCount}>
+                            <ActivityIndicator size="small" color="#3b82f6" />
+                            <Text style={styles.loadingPageCountText}>Extracting page count...</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.filePages}>
+                            Pages: {options.pages || 0}
+                          </Text>
+                        )}
                         {selectedService && (
                           <>
                             <Text style={styles.filePages}>
@@ -730,6 +849,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 2,
+  },
+  loadingPageCount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingVertical: 4,
+  },
+  loadingPageCountText: {
+    fontSize: 12,
+    color: '#3b82f6',
+    marginLeft: 8,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   fileItemRight: {
     flexDirection: 'row',

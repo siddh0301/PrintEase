@@ -5,36 +5,213 @@ import Earning from '../models/Earning.js';
 import fs from 'fs';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import pkg from 'pdf-to-printer';
+import { uploadToCloudinayWithPageCount, extractPageCountFromBuffer } from '../utils/cloudinary-upload.js';
 const { print } = pkg;
 
 export const inspectFiles = async (req, res) => {
   try {
+    const { pricePerPage = 0, quantity = 1 } = req.body;
     const details = [];
+    const startTime = Date.now();
 
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`📥 INSPECT REQUEST RECEIVED`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`📄 Files count: ${(req.files || []).length}`);
+    console.log(`💰 Price per page: ${pricePerPage}`);
+    console.log(`📦 Quantity: ${quantity}`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    // Files are in memory (no disk I/O)
     for (const file of req.files || []) {
-      let pageCount;
-      if ((file.mimetype || '').toLowerCase() === 'application/pdf') {
-        try {
-          const data = await pdfParse(fs.readFileSync(file.path));
-          pageCount = data.numpages;
-        } catch {}
-      }
+      try {
+console.log(`📄 Processing: ${file.originalname}`);
+    console.log(`  Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+        
+        // Step 1: Extract page count from buffer (ultra fast - no disk I/O)
+        const pageCount = await extractPageCountFromBuffer(file.buffer, file.mimetype);
 
-      details.push({
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        pageCount: pageCount || null
-      });
+        // Step 2: Calculate price
+        let calculatedPrice = null;
+        if (pageCount !== null && pageCount > 0 && pricePerPage > 0) {
+          calculatedPrice = pageCount * pricePerPage * quantity;
+        }
+
+        // Step 3: Upload to Cloudinary (with already-extracted page count)
+        let cloudinaryUrl = null;
+        let cloudinaryId = null;
+        let uploadStatus = 'pending';
+        try {
+          console.log(`\n☁️ Uploading to Cloudinary: ${file.originalname}`);
+          // Pass pageCount so it doesn't extract again
+          const uploadResult = await uploadToCloudinayWithPageCount(file, { 
+            pricePerPage, 
+            quantity, 
+            pageCount  // Pass already-extracted count
+          });
+          cloudinaryUrl = uploadResult.url;
+          cloudinaryId = uploadResult.cloudinaryId;
+          uploadStatus = uploadResult.uploadedToCloudinary ? 'uploaded' : 'skipped_size_limit';
+          console.log(`✅ Upload Status: ${uploadResult.message}\n`);
+        } catch (uploadError) {
+          console.error(`❌ Cloudinary upload failed: ${uploadError.message}`);
+          console.error('Upload error details:', uploadError);
+          uploadStatus = 'failed';
+          // Still continue - we have the page count which is what matters
+        }
+
+        details.push({
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          pageCount: pageCount || null,
+          calculatedPrice: calculatedPrice,
+          fileSize: file.size,
+          cloudinaryUrl: cloudinaryUrl,
+          cloudinaryId: cloudinaryId,
+          uploadStatus: uploadStatus
+        });
+
+        console.log(`✅ ${file.originalname}: ${pageCount} pages | 💰 Rs.${calculatedPrice} | 📤 ${uploadStatus}`);
+      } catch (error) {
+        console.error(`❌ Failed to inspect ${file.originalname}: ${error.message}`);
+        details.push({
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          error: error.message
+        });
+      }
     }
 
-    const totalPdfPages = details.reduce(
-      (sum, f) => sum + (Number(f.pageCount) || 0),
-      0
-    );
+    const totalPdfPages = details.reduce((sum, f) => sum + (Number(f.pageCount) || 0), 0);
+    const totalCalculatedPrice = details.reduce((sum, f) => sum + (Number(f.calculatedPrice) || 0), 0);
+    const elapsed = Date.now() - startTime;
 
-    res.json({ totalPdfPages, files: details });
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`✅ INSPECTION COMPLETED`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`📊 Total Pages: ${totalPdfPages}`);
+    console.log(`💰 Total Price: Rs.${totalCalculatedPrice}`);
+    console.log(`⏱️  Time: ${elapsed}ms`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    res.json({ 
+      totalPdfPages, 
+      totalCalculatedPrice,
+      processedSuccessfully: true,
+      timeTaken: elapsed
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Inspect failed', error: error.message });
+    console.error('❌ Inspect error:', error.message);
+    // Never expose stack traces to client
+    const message = process.env.NODE_ENV === 'production' 
+      ? 'Inspection failed. Please try again.' 
+      : error.message;
+    res.status(500).json({ message });
+  }
+};
+
+/**
+ * Debug: Test Cloudinary credentials
+ */
+export const testCloudinaryUpload = async (req, res) => {
+  try {
+    console.log('\n🔍 TESTING CLOUDINARY CREDENTIALS');
+    console.log('='.repeat(60));
+
+    // Check if file exists
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const file = req.files[0];
+    console.log(`\n📄 Test File: ${file.originalname}`);
+    console.log(`  Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`  Buffer available: ${!!file.buffer}`);
+    
+    // Try uploading
+    console.log('\n☁️ Attempting Cloudinary upload...');
+    const uploadResult = await uploadToCloudinayWithPageCount(file, {});
+    
+    console.log('\n✅ CLOUDINARY UPLOAD SUCCESS!');
+    console.log(`  URL: ${uploadResult.url}`);
+    console.log(`  ID: ${uploadResult.cloudinaryId}`);
+
+    res.json({
+      success: true,
+      message: 'Test completed successfully',
+      uploadSuccessful: true
+    });
+  } catch (error) {
+    console.error('\n❌ CLOUDINARY TEST FAILED');
+    console.error(`  Error: ${error.message}`);
+    // Never expose stack traces
+    res.status(500).json({
+      success: false,
+      message: 'Test failed. Check server logs for details.',
+      uploadSuccessful: false
+    });
+  }
+};
+
+/**
+ * Debug endpoint: Test page count extraction without uploading to Cloudinary
+ * Useful for diagnosing page count issues
+ * Now uses memory-based buffer extraction (ultra fast)
+ */
+export const debugPageCount = async (req, res) => {
+  try {
+    const results = [];
+
+    console.log('\n🔍 DEBUG PAGE COUNT - Buffer-based extraction');
+    console.log('='.repeat(60) + '\n');
+
+    for (const file of req.files || []) {
+      console.log(`\n📄 File: ${file.originalname}`);
+      console.log(`  Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`  Type: ${file.mimetype}`);
+
+      try {
+        const startTime = Date.now();
+        // Use buffer-based extraction (no disk I/O)
+        const pageCount = await extractPageCountFromBuffer(file.buffer, file.mimetype);
+        const elapsed = Date.now() - startTime;
+
+        results.push({
+          file: file.originalname,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          pageCount,
+          extractedIn: `${elapsed}ms`,
+          status: pageCount > 0 ? '✅ SUCCESS' : '⚠️ FAILED'
+        });
+
+        console.log(`  ✅ Pages: ${pageCount}`);
+        console.log(`  ⏱️  Extracted in: ${elapsed}ms`);
+      } catch (error) {
+        console.error(`  ❌ ERROR: ${error.message}`);
+        results.push({
+          file: file.originalname,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          error: error.message,
+          status: '❌ ERROR'
+        });
+      }
+    }
+
+    console.log(`\n${'='.repeat(60)}\n`);
+
+    res.json({
+      message: 'Page count debug test completed',
+      timestamp: new Date().toISOString(),
+      results
+    });
+  } catch (error) {
+    console.error('Debug failed:', error.message);
+    res.status(500).json({
+      message: 'Debug test failed',
+      error: error.message
+    });
   }
 };
 
@@ -153,17 +330,18 @@ export const createOrder = async (req, res) => {
       shop: shopId,
       orderNumber,
       items: itemsWithTotal,   // ⭐ use calculated items
-      files: req.files
-        ? req.files.map(f => ({
-            originalName: f.originalname,
-            fileName: f.filename,
-            filePath: f.path,
-            // fileUrl: `${req.protocol}://${req.get("host")}/${f.path}`,
-            fileUrl: `/uploads/orders/${f.filename}`,
-            fileSize: f.size,
-            mimeType: f.mimetype
-          }))
-        : [],
+      files: req.body.files && Array.isArray(req.body.files) && req.body.files.length > 0
+        ? req.body.files  // Use pre-uploaded files from request body (from inspect endpoint)
+        : req.files
+          ? req.files.map(f => ({
+              originalName: f.originalname,
+              fileName: f.filename,
+              filePath: f.path,
+              fileUrl: `/uploads/orders/${f.filename}`,
+              fileSize: f.size,
+              mimeType: f.mimetype
+            }))
+          : [],
       deliveryAddress: deliveryAddress
         ? JSON.parse(deliveryAddress)
         : undefined,

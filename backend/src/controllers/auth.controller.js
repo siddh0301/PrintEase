@@ -66,14 +66,11 @@ export const requestOtp = async (req, res) => {
         text: `Your ${purpose} code is: ${code}. It expires in 5 minutes.`,
         html: `<p>Your ${purpose} code is: <strong>${code}</strong>.</p><p>It expires in 5 minutes.</p>`,
       });
-      console.log(`OTP sent to ${email}: ${code}`);
-    } else {
-      console.log(`Otp for ${email} : ${code}`);
     }
 
     return res.json({
-      message: 'OTP sent',
-      devOtp: process.env.NODE_ENV !== 'production' ? code : undefined,
+      message: 'OTP sent to your email',
+      // Never send OTP in response (removed devOtp)
     });
   } catch (error) {
     console.error('Request OTP error:', error);
@@ -169,12 +166,10 @@ export const registerCustomer = async (req, res) => {
   try {
     const { name, email, phone } = req.body;
 
-    console.log('Customer registration attempt for:', email);
-
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.log('User already exists:', email);
-      return res.status(400).json({ message: 'User already exists' });
+      // Return same message to prevent user enumeration
+      return res.status(400).json({ message: 'Registration failed. Please try again.' });
     }
 
     const user = new User({
@@ -187,8 +182,6 @@ export const registerCustomer = async (req, res) => {
 
     await user.save();
 
-    console.log('Customer registered successfully:', email);
-
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role },
       config.JWT_SECRET,
@@ -196,7 +189,7 @@ export const registerCustomer = async (req, res) => {
     );
 
     res.status(201).json({
-      message: 'Customer registered successfully',
+      message: 'Registration successful',
       token,
       user: {
         id: user._id,
@@ -208,8 +201,9 @@ export const registerCustomer = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Customer registration error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Registration error');
+    // Return generic message
+    res.status(500).json({ message: 'Registration failed. Please try again.' });
   }
 };
 
@@ -218,16 +212,10 @@ export const registerShopOwner = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    console.log('Shop owner registration attempt for:', email);
-
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.log('User already exists:', email);
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'Registration failed. Please try again.' });
     }
-
-    // const bcrypt = (await import('bcryptjs')).default;
-    // const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = new User({
       name,
@@ -239,8 +227,6 @@ export const registerShopOwner = async (req, res) => {
     });
 
     await user.save();
-    
-    console.log('Shop owner registered successfully:', email);
 
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role },
@@ -249,7 +235,7 @@ export const registerShopOwner = async (req, res) => {
     );
 
     res.status(201).json({
-      message: 'Shop owner registered successfully',
+      message: 'Registration successful',
       token,
       user: {
         id: user._id,
@@ -259,8 +245,7 @@ export const registerShopOwner = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Shop owner registration error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Registration failed. Please try again.' });
   }
 };
 
@@ -269,16 +254,13 @@ export const loginCustomer = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    console.log('Customer login attempt for:', email);
-
     if (!email || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('User not found:', email);
-      return res.status(400).json({ message: 'User not found' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     // Find OTP record

@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import helmet from 'helmet';
 import apiLogger from './middlewares/logger.middleware.js';
 
 import authRoutes from './routes/auth.routes.js';
@@ -17,7 +18,25 @@ import notificationsRoutes from './routes/notifications.js';
 
 const app = express();
 
-const allowedOrigins = process.env.CORS_ORIGIN.split(',');
+// 🔒 Security Middleware
+app.use(helmet());
+
+// 🔒 Additional Security Headers
+app.use((req, res, next) => {
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Prevent MIME-type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Enable browser XSS protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Enforce HTTPS
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // Referrer Policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
 // Middlewares
 app.use(
   cors({

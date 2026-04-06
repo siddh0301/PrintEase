@@ -7,15 +7,19 @@ export const getAllShops = async (req, res) => {
   try {
     const { city } = req.query;
     let query = { isActive: true };
-    if (city) query['address.city'] = new RegExp(city, 'i');
+    if (city) {
+      // Sanitize regex to prevent NoSQL injection
+      const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query['address.city'] = new RegExp(escapedCity, 'i');
+    }
 
     const shops = await Shop.find(query)
       .populate('owner', 'name phone')
-      .select('-services');
+      .select('-services -upi -bankDetails'); // Hide sensitive data
 
     res.json(shops);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -47,7 +51,8 @@ export const getNearbyShops = async (req, res) => {
 export const getShopById = async (req, res) => {
   try {
     const shop = await Shop.findById(req.params.id)
-      .populate('owner', 'name phone email');
+      .populate('owner', 'name phone')
+      .select('-upi -bankDetails -paymentDetails'); // Hide sensitive financial data
 
     if (!shop) {
       return res.status(404).json({ message: 'Shop not found' });
@@ -55,17 +60,24 @@ export const getShopById = async (req, res) => {
 
     res.json(shop);
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
 /* ===== Generate UPI QR ===== */
 export const generateUpiQr = async (req, res) => {
   try {
-    const { am, tn, pn } = req.query;
+    // Only shop owner can generate their own UPI QR
+    // auth middleware required on route
     const shop = await Shop.findById(req.params.id);
     if (!shop) return res.status(404).json({ message: 'Shop not found' });
 
+    // Verify ownership
+    if (shop.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { am, tn, pn } = req.query;
     const upiId = shop?.upi?.id;
     const payeeName = pn || shop?.upi?.displayName || shop.shopName;
     if (!upiId) return res.status(400).json({ message: 'UPI ID not set for this shop' });
@@ -79,7 +91,7 @@ export const generateUpiQr = async (req, res) => {
 
     res.json({ intent, qrDataUrl: dataUrl });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to generate UPI QR', error: error.message });
+    res.status(500).json({ message: 'Failed to generate UPI QR' });
   }
 };
 
@@ -100,11 +112,8 @@ export const createShop = async (req, res) => {
 
     res.status(201).json({ message: 'Shop created successfully', shop });
   } catch (error) {
-    console.error('Error creating shop', {
-      body: req.body,
-      error: error.message,
-      stack: error.stack
-    });
+    console.error('Error creating shop');
+    // Never log request body
 
     const validation = error?.errors
       ? Object.keys(error.errors).map(k => error.errors[k]?.message)
@@ -113,8 +122,7 @@ export const createShop = async (req, res) => {
     const status = validation ? 400 : 500;
 
     res.status(status).json({
-      message: validation ? 'Validation error' : 'Server error creating shop',
-      error: error.message,
+      message: validation ? 'Validation error' : 'Server error',
       validation
     });
   }
@@ -141,36 +149,6 @@ export const updateShop = async (req, res) => {
   }
 };
 
-/* ===== Update UPI ID ===== */
-export const updateUpi = async (req, res) => {
-  try {
-    const { upiId, displayName } = req.body;
-    
-    if (!upiId) {
-      return res.status(400).json({ message: 'UPI ID is required' });
-    }
-
-    const shop = await Shop.findById(req.params.id);
-    if (!shop) return res.status(404).json({ message: 'Shop not found' });
-    if (shop.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    shop.upi = {
-      id: upiId,
-      displayName: displayName || shop.shopName || 'Shop'
-    };
-    await shop.save();
-
-    res.json({ 
-      message: 'UPI ID updated successfully', 
-      upi: shop.upi 
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
 /* ===== Owner shops ===== */
 export const getOwnerShops = async (req, res) => {
   try {
@@ -180,6 +158,30 @@ export const getOwnerShops = async (req, res) => {
 
     const shops = await Shop.find({ owner: req.user._id });
     res.json(shops);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+/* ===== Update UPI ===== */
+export const updateUpi = async (req, res) => {
+  try {
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) {
+      return res.status(404).json({ message: 'Shop not found' });
+    }
+
+    if (shop.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    shop.upi = req.body;
+    await shop.save();
+
+    res.json({
+      message: 'UPI information updated successfully',
+      upi: shop.upi
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
